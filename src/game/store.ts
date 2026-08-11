@@ -1,4 +1,5 @@
 import { CHORES, CONFIG, ITEMS, PETS, THEMES } from "../content/hr";
+import { ITEM_SLOTS, PET_SLOTS } from "./house";
 
 export const STORAGE_KEY = "croatian-money-pet-game:v1";
 
@@ -104,15 +105,17 @@ export interface StorageLike {
   removeItem?(key: string): void;
 }
 
-const PET_SLOTS = ["pet-1", "pet-2", "pet-3", "pet-4"];
-const ITEM_SLOTS = ["item-1", "item-2", "item-3", "item-4", "item-5", "item-6"];
 const PET_IDS = new Set<string>(PETS.map(({ id }) => id));
 const ITEM_IDS = new Set<string>(ITEMS.map(({ id }) => id));
 const CHORE_IDS = new Set<string>(CHORES.map(({ id }) => id));
 const THEME_IDS = new Set<string>(THEMES.map(({ id }) => id));
-const CHORE_ACTIVITY_REWARDS = new Map<string, number>(CHORES.map(({ name, reward }) => [name, reward]));
-const PET_ACTIVITY_PRICES = new Map<string, number>(PETS.map(({ name, price }) => [name, price]));
-const ITEM_ACTIVITY_PRICES = new Map<string, number>(ITEMS.map(({ name, price }) => [name, price]));
+const NAMED_ACTIVITY_CATALOGS = {
+  "chore-reward-paid": CHORES.map(({ name, reward }) => ({ name, amount: reward })),
+  "pet-purchased": PETS.map(({ name, price }) => ({ name, amount: price })),
+  "item-purchased": ITEMS.map(({ name, price }) => ({ name, amount: price })),
+} as const;
+
+type NamedActivityCode = keyof typeof NAMED_ACTIVITY_CATALOGS;
 
 export function initialState(): AppStateV1 {
   return {
@@ -124,8 +127,8 @@ export function initialState(): AppStateV1 {
     ownedPets: [],
     itemQuantities: {},
     selectedTheme: "sun",
-    petPlacements: Object.fromEntries(PET_SLOTS.map((slot) => [slot, null])),
-    itemPlacements: Object.fromEntries(ITEM_SLOTS.map((slot) => [slot, null])),
+    petPlacements: Object.fromEntries([...PET_SLOTS].map((slot) => [slot, null])),
+    itemPlacements: Object.fromEntries([...ITEM_SLOTS].map((slot) => [slot, null])),
     nextId: 1,
     activities: [],
   };
@@ -141,9 +144,10 @@ function isRecord(value: unknown): value is Record<string, unknown> {
 
 function validActivity(value: unknown): value is ActivityEntry {
   if (!isRecord(value) || !ACTIVITY_CODES.includes(value.code as ActivityCode) || !isWholeNonNegative(value.amount) || value.amount === 0) return false;
-  if (value.code === "chore-reward-paid") return typeof value.name === "string" && CHORE_ACTIVITY_REWARDS.get(value.name) === value.amount;
-  if (value.code === "pet-purchased") return typeof value.name === "string" && PET_ACTIVITY_PRICES.get(value.name) === value.amount;
-  if (value.code === "item-purchased") return typeof value.name === "string" && ITEM_ACTIVITY_PRICES.get(value.name) === value.amount;
+  if (typeof value.code === "string" && Object.hasOwn(NAMED_ACTIVITY_CATALOGS, value.code)) {
+    const catalog = NAMED_ACTIVITY_CATALOGS[value.code as NamedActivityCode];
+    return typeof value.name === "string" && catalog.some((entry) => entry.name === value.name && entry.amount === value.amount);
+  }
   return !("name" in value);
 }
 
@@ -170,16 +174,16 @@ export function isValidState(value: unknown): value is AppStateV1 {
   if (usedIds.some((id) => id >= (value.nextId as number))) return false;
 
   if (!isRecord(value.itemQuantities) || Object.entries(value.itemQuantities).some(([id, quantity]) => !ITEM_IDS.has(id) || !isWholeNonNegative(quantity))) return false;
-  if (!isRecord(value.petPlacements) || Object.keys(value.petPlacements).length !== PET_SLOTS.length) return false;
+  if (!isRecord(value.petPlacements) || Object.keys(value.petPlacements).length !== PET_SLOTS.size) return false;
   const petPlacements = value.petPlacements;
-  if (!PET_SLOTS.every((slot) => slot in petPlacements && (petPlacements[slot] === null || Number.isInteger(petPlacements[slot])))) return false;
-  const placedPets = PET_SLOTS.map((slot) => petPlacements[slot]).filter((id): id is number => typeof id === "number");
+  if (![...PET_SLOTS].every((slot) => slot in petPlacements && (petPlacements[slot] === null || Number.isInteger(petPlacements[slot])))) return false;
+  const placedPets = [...PET_SLOTS].map((slot) => petPlacements[slot]).filter((id): id is number => typeof id === "number");
   if (new Set(placedPets).size !== placedPets.length || placedPets.some((id) => !pets.some((pet) => pet.id === id))) return false;
 
-  if (!isRecord(value.itemPlacements) || Object.keys(value.itemPlacements).length !== ITEM_SLOTS.length) return false;
+  if (!isRecord(value.itemPlacements) || Object.keys(value.itemPlacements).length !== ITEM_SLOTS.size) return false;
   const itemPlacements = value.itemPlacements;
-  if (!ITEM_SLOTS.every((slot) => slot in itemPlacements && (itemPlacements[slot] === null || ITEM_IDS.has(itemPlacements[slot] as string)))) return false;
-  const placedItems = ITEM_SLOTS.map((slot) => itemPlacements[slot]).filter((id): id is string => typeof id === "string");
+  if (![...ITEM_SLOTS].every((slot) => slot in itemPlacements && (itemPlacements[slot] === null || ITEM_IDS.has(itemPlacements[slot] as string)))) return false;
+  const placedItems = [...ITEM_SLOTS].map((slot) => itemPlacements[slot]).filter((id): id is string => typeof id === "string");
   for (const id of ITEM_IDS) {
     if (placedItems.filter((placed) => placed === id).length > ((value.itemQuantities as Record<string, number>)[id] ?? 0)) return false;
   }

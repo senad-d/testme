@@ -18,26 +18,42 @@ The committed lockfile keeps the tested toolchain, including Vitest V8 coverage 
 
 ## Tests and production build
 
+Focused integration commands:
+
+```sh
+npm test -- src/app.test.ts src/game/adventure.test.ts
+npm test -- src/game/house.test.ts src/game/store.test.ts
+npm test -- src/app.test.ts src/game/house.test.ts
+npm test -- src/app.test.ts
+npm test -- src/app.test.ts src/game/parent-access.test.ts
+```
+
+Full project commands:
+
 ```sh
 npm test
+npm run check
 npm run build
+npm run coverage:parent
 ```
 
 The build command creates a static `dist/` directory. Production hosting must serve `dist/` over HTTPS in a secure browser context because parent PIN unlock depends on Web Crypto. `localhost` is a development-only secure-context exception. In an insecure or Web-Crypto-unavailable context, the Croatian fail-closed unavailable state is shown and all parent controls remain inaccessible. The application does not require server-side routing.
 
 ## Maintaining content and rules
 
-Frequently changed values and all Croatian display copy live in `src/content/hr.ts`:
+Frequently changed values and all Croatian display copy live in `src/content/hr.ts`. The final closed catalogs are:
 
-- `CHORES`: chore names and rewards
-- `PETS`: animal names, prices, and emoji
-- `ITEMS`: pet-item and house-decoration names, prices, and emoji
-- `THEMES`: free house themes
+- `CHORES` (10): **Posloži krevet**, **Pospremi igračke**, **Zalij biljke**, **Postavi stol**, **Pomozi složiti rublje**, **Složi školski pribor**, **Nahrani ljubimce**, **Pometi kuhinju**, **Pomozi u vrtu**, and **Razvrstaj otpad**.
+- `PETS` (8): **Ribica**, **Kunić**, **Mačka**, **Pas**, **Ptičica**, **Koza**, **Konj**, and **Krava**.
+- `ITEMS` (10): **Zdjelica**, **Igračka**, **Krevetić**, **Biljka**, **Tepih**, **Zidna slika**, **Stajalica za ptice**, **Četka za ljubimce**, **Svjetiljka**, and **Polica za knjige**.
+- `HOUSE_AREAS` in `src/game/house.ts` (4): **Dnevna soba**, **Soba za ljubimce**, **Spremište**, and **Dvorište i staja**. This ordered contract owns all four `pet-N` and six `item-N` V1 slots; Croatian names and descriptions are in `HOUSE_AREA_CONTENT`.
+- `THEMES`: free house themes.
 - `CONFIG.debtLimit`: maximum fictional debt
 - `HR`, `LOAD_MESSAGES`, `RESULT_MESSAGES`, and `activityMessage`: Croatian interface and feedback text
 - `ADVENTURE_MISSIONS`: Croatian stories, instructions, questions, the eight answer mappings, and action steps for the closed `saving`, `earning`, `purchase`, and `loan` mission IDs
 - `ADVENTURE_BADGES`: Croatian names and explanations for the four cosmetic badges
-- `MONEY_SCHOOL`: the six Croatian topics **Novčanik**, **Kasica**, **Zarada**, **Cijena**, **Zajam**, and **Dug**
+- `MONEY_SCHOOL`: the six Croatian topics **Novčanik**, **Kasica**, **Zarada**, **Cijena**, **Zajam**, and **Dug**.
+- `ADVENTURE_PRACTICE`: the replayable six-card practice deck for those same ordered topics.
 
 When changing or adding one chore or shop entry:
 
@@ -59,7 +75,16 @@ croatian-money-pet-game:parent-access:v1
 croatian-money-pet-game:adventure:v1
 ```
 
-The first record contains persistent game balances, chores, purchases, house choices, and activity history. The second contains the versioned PBKDF2 parameters, random salt, and derived verifier for the six-digit local parent PIN; it never intentionally stores the raw PIN. The third contains only validated mission progress: the active/completed missions, correct-answer and qualifying-action evidence, four-star count, and four badge IDs. Adventure stars and badges are cosmetic and cannot be spent or change a balance. Existing valid game and parent records remain compatible because the adventure loader never migrates, reinterprets, rewrites, or removes them. Each loader reads only its own V1 record, has an independent recovery boundary, never silently migrates or reinterprets another record, and preserves its unreadable stored record until a later accepted change in that subsystem. A successful parent unlock is held only in memory and is lost when the parent leaves the section, selects **Zaključaj**, reloads, or starts a new app controller.
+The first record contains persistent game balances, chores, purchases, house choices, and activity history. The second contains the versioned PBKDF2 parameters, random salt, and derived verifier for the six-digit local parent PIN; it never intentionally stores the raw PIN. The third contains only validated mission progress: the active/completed missions, correct-answer and qualifying-action evidence, four-star count, and four badge IDs. Adventure stars and badges are cosmetic and cannot be spent or change a balance. Existing valid game and parent records remain compatible because the adventure loader never migrates, reinterprets, rewrites, or removes them. Each loader reads only its own V1 record, has an independent recovery boundary, never silently migrates or reinterprets another record, and preserves its unreadable stored record until a later accepted change in that subsystem.
+
+Persistence boundaries are intentionally narrow:
+
+- **Persistent game V1:** fictional wallet, savings and debt balances; chore requests and accepted parent decisions; purchased animals/items; selected house theme and placements; and existing activity history.
+- **Persistent adventure V1:** the four main missions' validated answers, action evidence, completion, four cosmetic stars, and four badges.
+- **Persistent parent-access V1:** only the local PBKDF2 credential record; never the raw PIN and never an unlocked flag.
+- **Controller-memory-only:** earnings-challenge round/feedback, shop category and affordability filters, savings-goal calculation/form result, and practice card/feedback/correct-card progress. Navigation retains these tools only while the current controller exists; reload or controller recreation resets them without changing persisted records.
+
+A successful parent unlock is also session-only: it is lost when the parent leaves the section, selects **Zaključaj**, reloads, or starts a new app controller. The Croatian learning overview is rendered **only while successfully unlocked**. It is read-only, derives seven values and up to five recent existing activities from current game/adventure memory, grants no additional authority, and is absent while unprovisioned, locked, unavailable, relocked, or reloaded.
 
 The public game does not offer first-use PIN enrollment: a child using the ordinary interface must not be able to become the first parent. A fresh profile therefore remains locked and visibly unprovisioned until its credential is established through a separate parent-authenticated provisioning boundary. This static distribution does not implement such a boundary, so fresh-profile self-service enrollment is intentionally unsupported. The test suite uses `setupParentAccess` only as an external fixture to verify compatibility, locking, and unlocking; `createApp` neither imports nor calls it.
 
@@ -74,7 +99,7 @@ localStorage.removeItem("croatian-money-pet-game:adventure:v1")
 location.reload()
 ```
 
-Changing either stored schema requires an explicit migration and a new version strategy. Do not silently reinterpret or overwrite unreadable data; the current loaders fail closed, and the game-state loader starts a safe new in-memory game while preserving unreadable stored data until a later accepted game action.
+Changing any stored schema requires an explicit migration and a new version strategy. Do not silently reinterpret or overwrite unreadable data; the current loaders fail closed, and the game-state loader starts a safe new in-memory game while preserving unreadable stored data until a later accepted game action.
 
 ## Pre-release checklist
 
@@ -92,6 +117,18 @@ Changing either stored schema requires an explicit migration and a new version s
 - [ ] Test the correct-answer, action-step, new-star/badge, and journey-completion reactions in normal motion and with `prefers-reduced-motion: reduce`; confirm the same progress information remains available in the checklist, text, stars, and badges with animation disabled.
 - [ ] Check layouts manually at 320, 768, and 1440 px with no clipping, overlap, or horizontal scrolling.
 - [ ] Run the destructive-reset console procedure, confirm none of the three keys remains, reload, and confirm a fresh game, first adventure mission, zero stars, and no parent credential.
-- [ ] Smoke-test current Chrome, Safari, Firefox, and Edge.
 
-The game uses only fictional **zlatnici**. It contains no real payments, real loans, advertising, analytics, or external purchase links.
+### Current manual release receipt — 2026-08-11
+
+- [x] After a clean `npm ci`, `npm test`, `npm run check`, `npm run build`, and `npm run coverage:parent` passed.
+- [x] At 320, 768, and 1440 px, checked all six sections and the new challenge, filters, planner, practice, named-house, and overview surfaces: no clipping, overlap, or horizontal scrolling was observed.
+- [x] Keyboard-only checks showed visible focus, and the new flow controls met the 44×44 px minimum target.
+- [x] With reduced motion enabled, animations/transitions were removed while the same progress, feedback, occupancy, summary, and completion information remained in text.
+- [x] Smoke check: installed Chrome 151.0.7922.76.
+- [x] Smoke check: installed Safari 26.5 (21624.2.5.11.4).
+- [x] Smoke check: installed Firefox 153.0.3.
+- [ ] Microsoft Edge — **not executed; no Edge support claim is made**. Edge is not installed and is not an implementation gate.
+
+This receipt covers engineering behavior and release presentation only. No child playtest threshold was supplied, so it does not claim product validation or a measured learning outcome.
+
+The game uses only fictional **zlatnici**. It contains no real payments, real loans, advertising, analytics, cloud storage, accounts, social features, or external purchase links.

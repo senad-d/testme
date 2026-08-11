@@ -1,6 +1,7 @@
 import type { ActivityEntry, LoadCode, ResultCode } from "../game/store";
 import type { ParentAccessCode } from "../game/parent-access";
 import type { AdventureLoadCode, AdventureResultCode, AnswerId, BadgeId, GlossaryId, MissionId } from "../game/adventure";
+import type { HouseAreaId, SlotKind } from "../game/house";
 
 export const CONFIG = {
   currency: "zlatnik",
@@ -19,13 +20,18 @@ export const CHORES = [
   { id: "sweep-kitchen", name: "Pometi kuhinju", reward: 9 },
   { id: "help-garden", name: "Pomozi u vrtu", reward: 11 },
   { id: "sort-recycling", name: "Razvrstaj otpad", reward: 14 },
-] as const;
+] as const satisfies ReadonlyArray<{ id: string; name: string; reward: number }>;
+
+type ChoreId = (typeof CHORES)[number]["id"];
 
 export const EARNINGS_CHALLENGE = [
   { choices: ["set-table", "make-bed"], correctId: "set-table" },
   { choices: ["help-garden", "tidy-toys"], correctId: "help-garden" },
   { choices: ["sort-recycling", "fold-laundry"], correctId: "sort-recycling" },
-] as const;
+] as const satisfies ReadonlyArray<{
+  choices: readonly [ChoreId, ChoreId];
+  correctId: ChoreId;
+}>;
 
 export const PETS = [
   { id: "fish", name: "Ribica", price: 30, emoji: "🐟" },
@@ -36,7 +42,7 @@ export const PETS = [
   { id: "goat", name: "Koza", price: 70, emoji: "🐐" },
   { id: "horse", name: "Konj", price: 100, emoji: "🐴" },
   { id: "cow", name: "Krava", price: 110, emoji: "🐄" },
-] as const;
+] as const satisfies ReadonlyArray<{ id: string; name: string; price: number; emoji: string }>;
 
 export const ITEMS = [
   { id: "bowl", name: "Zdjelica", price: 10, emoji: "🥣", category: "pet" },
@@ -49,13 +55,48 @@ export const ITEMS = [
   { id: "pet-brush", name: "Četka za ljubimce", price: 14, emoji: "🪮", category: "pet" },
   { id: "lamp", name: "Svjetiljka", price: 16, emoji: "🏮", category: "house" },
   { id: "bookshelf", name: "Polica za knjige", price: 24, emoji: "📚", category: "house" },
-] as const;
+] as const satisfies ReadonlyArray<{
+  id: string;
+  name: string;
+  price: number;
+  emoji: string;
+  category: "pet" | "house";
+}>;
 
 export const THEMES = [
   { id: "sun", name: "Sunce" },
   { id: "sea", name: "More" },
   { id: "forest", name: "Šuma" },
 ] as const;
+
+export interface HouseAreaContent {
+  name: string;
+  description: string;
+}
+
+export const HOUSE_AREA_CONTENT = {
+  "living-room": {
+    name: "Dnevna soba",
+    description: "Ugodno mjesto za druženje i omiljene kućne ukrase.",
+  },
+  "pet-room": {
+    name: "Soba za ljubimce",
+    description: "Topao kutak u kojem ljubimci odmaraju uz svoje stvari.",
+  },
+  storage: {
+    name: "Spremište",
+    description: "Sigurno mjesto za čuvanje stvari koje sada ne koristiš.",
+  },
+  "yard-stable": {
+    name: "Dvorište i staja",
+    description: "Prostrano mjesto na svježem zraku za igru i odmor ljubimaca.",
+  },
+} as const satisfies Record<HouseAreaId, HouseAreaContent>;
+
+export function houseAreaContent(areaId: unknown): HouseAreaContent | null {
+  if (typeof areaId !== "string" || !Object.hasOwn(HOUSE_AREA_CONTENT, areaId)) return null;
+  return HOUSE_AREA_CONTENT[areaId as HouseAreaId];
+}
 
 export const ADVENTURE_MISSIONS: Record<MissionId, {
   title: string; story: string; instruction: string; question: string; actionSteps: ReadonlyArray<string>;
@@ -99,6 +140,79 @@ export const MONEY_SCHOOL: Record<GlossaryId, { title: string; definition: strin
   debt: { title: "Dug", definition: "Dug pokazuje koliko posuđenih zlatnika još trebaš vratiti.", example: "Od duga 10 vratiš 4 zlatnika pa ostaje dug 6." },
 };
 
+export type PracticeAnswerId = "first" | "second";
+
+export interface AdventurePracticeCard<Id extends GlossaryId = GlossaryId> {
+  id: Id;
+  title: string;
+  scenario: string;
+  choices: readonly [
+    { id: PracticeAnswerId; label: string },
+    { id: PracticeAnswerId; label: string },
+  ];
+  correctAnswer: PracticeAnswerId;
+  correctExplanation: string;
+  wrongExplanation: string;
+}
+
+export const ADVENTURE_PRACTICE = [
+  {
+    id: "wallet", title: "Novčanik",
+    scenario: "Mia u novčaniku ima 12 zlatnika i želi kupiti zdjelicu koja stoji 5 zlatnika. Odakle igra uzima zlatnike za kupnju?",
+    choices: [{ id: "first", label: "Iz novčanika." }, { id: "second", label: "Iz kasice bez premještanja zlatnika." }],
+    correctAnswer: "first",
+    correctExplanation: "Točno! Svaka kupnja naplaćuje zlatnike iz novčanika.",
+    wrongExplanation: "Dobar pokušaj! Kupnja ne uzima zlatnike iz kasice, nego samo iz novčanika.",
+  },
+  {
+    id: "savings", title: "Kasica",
+    scenario: "Luka je spremio 8 zlatnika u kasicu za igračku koju želi kasnije. Što može učiniti kada mu ti zlatnici zatrebaju?",
+    choices: [{ id: "first", label: "Može ih uzeti iz kasice i vratiti u novčanik." }, { id: "second", label: "Ne može ih više koristiti jer su nestali." }],
+    correctAnswer: "first",
+    correctExplanation: "Bravo! Zlatnici u kasici ostaju sačuvani i poslije ih možeš vratiti u novčanik.",
+    wrongExplanation: "Pokušaj ponovno! Zlatnici u kasici ne nestaju; možeš ih poslije uzeti iz kasice.",
+  },
+  {
+    id: "earning", title: "Zarada",
+    scenario: "Ema je završila posao zalijevanja biljaka i označila ga kao gotov. Kada nagrada stiže u njezin novčanik?",
+    choices: [{ id: "first", label: "Tek nakon što roditelj potvrdi završeni posao." }, { id: "second", label: "Odmah nakon označavanja, bez potvrde roditelja." }],
+    correctAnswer: "first",
+    correctExplanation: "Točno! Nagrada za završeni posao stiže tek nakon potvrde roditelja.",
+    wrongExplanation: "Još malo razmisli! Označavanje nije dovoljno; roditelj prvo treba potvrditi završeni posao.",
+  },
+  {
+    id: "price", title: "Cijena",
+    scenario: "Svjetiljka ima cijenu od 16 zlatnika. Koliko zlatnika treba biti u novčaniku da je možeš kupiti?",
+    choices: [{ id: "first", label: "Najmanje 16 zlatnika." }, { id: "second", label: "Bilo koliko, primjerice 5 zlatnika." }],
+    correctAnswer: "first",
+    correctExplanation: "Bravo! Cijena pokazuje da za kupnju u novčaniku trebaš imati najmanje 16 zlatnika.",
+    wrongExplanation: "Pokušaj ponovno! Za kupnju u novčaniku treba biti barem onoliko zlatnika koliko piše u cijeni.",
+  },
+  {
+    id: "loan", title: "Zajam",
+    scenario: "Noa u igri posudi 10 zlatnika. Što se tada događa s njegovim dugom?",
+    choices: [{ id: "first", label: "Dug se povećava za 10 zlatnika." }, { id: "second", label: "Dug ostaje isti jer je zajam poklon." }],
+    correctAnswer: "first",
+    correctExplanation: "Točno! Svaki posuđeni zlatnik povećava dug.",
+    wrongExplanation: "Dobar pokušaj! Zajam nije poklon; posuđivanje povećava dug koji treba vratiti.",
+  },
+  {
+    id: "debt", title: "Dug",
+    scenario: "Sara ima dug od 10 zlatnika i vrati 4 zlatnika. Koliki dug ostaje?",
+    choices: [{ id: "first", label: "Ostaje dug od 6 zlatnika." }, { id: "second", label: "Dug raste na 14 zlatnika." }],
+    correctAnswer: "first",
+    correctExplanation: "Odlično! Vraćanje smanjuje dug pa nakon vraćena 4 od 10 zlatnika ostaje dug od 6 zlatnika.",
+    wrongExplanation: "Pokušaj ponovno! Vraćanje ne povećava dug, nego ga smanjuje.",
+  },
+] as const satisfies readonly [
+  AdventurePracticeCard<"wallet">,
+  AdventurePracticeCard<"savings">,
+  AdventurePracticeCard<"earning">,
+  AdventurePracticeCard<"price">,
+  AdventurePracticeCard<"loan">,
+  AdventurePracticeCard<"debt">,
+];
+
 export const HR = {
   appName: "Moja trgovina ljubimaca",
   welcome: "Uči o novcu, brini se o ljubimcima i uredi njihovu kuću!",
@@ -140,6 +254,16 @@ export const HR = {
   moneySchoolHeading: "Mala škola novca",
   moneySchoolIntro: "Otvori temu kad god želiš kratko objašnjenje i primjer sa zlatnicima.",
   exampleLabel: "Primjer",
+  practiceHeading: "Vježba novčanih pravila",
+  practiceIntro: "Vježbaj svih šest pravila koliko god puta želiš. Vježba ne mijenja zvjezdice ni značke.",
+  practiceCardLabel: "Kartica za vježbu",
+  practiceProgress: (current: number, total: number) => `${current} od ${total} kartica`,
+  practiceScore: (correct: number, total: number) => `Točno riješeno: ${correct} od ${total}`,
+  practiceCompleted: "Ova je kartica točno riješena u ovoj vježbi.",
+  practicePending: "Ova kartica još nije točno riješena u ovoj vježbi.",
+  practiceAnswerAccessible: (title: string, answer: string) => `Odaberi odgovor za karticu ${title}: ${answer}`,
+  practicePrevious: "Prethodna kartica",
+  practiceNext: "Sljedeća kartica",
   decorativeSceneLabel: "Ukrasni krajolik pustolovine",
   wallet: "Novčanik",
   savings: "Kasica",
@@ -203,6 +327,8 @@ export const HR = {
   itemSlotsHeading: "Mjesta za stvari",
   emptySlot: "Slobodno mjesto",
   houseFull: "Sva odgovarajuća mjesta trenutačno su zauzeta.",
+  petHouseFullGuidance: "Sva četiri mjesta za ljubimce su zauzeta. Ostali ljubimci ostaju ovdje i čekaju slobodno mjesto.",
+  areaSlotsLabel: (areaName: string) => `Mjesta u području ${areaName}`,
   assetLabel: "Što želiš postaviti?",
   slotLabel: "Odaberi mjesto",
   placeButton: "Postavi",
@@ -232,6 +358,19 @@ export const HR = {
   parentUnavailable: "Sigurno otključavanje trenutačno nije dostupno. Otvori igru putem sigurne HTTPS veze i pokušaj ponovno.",
   parentDenied: "Roditeljska radnja nije dopuštena dok je kutak zaključan.",
   parentLocked: "Roditeljski kutak je zaključan.",
+  parentOverviewHeading: "Pregled učenja",
+  parentWalletSummary: "Zlatnici u novčaniku",
+  parentSavingsSummary: "Zlatnici u kasici",
+  parentDebtSummary: "Dug u igri",
+  parentPendingSummary: "Poslovi koji čekaju pregled",
+  parentMissionsSummary: "Dovršene glavne misije",
+  parentPetsSummary: "Kupljeni ljubimci",
+  parentItemsSummary: "Ukupno kupljenih stvari",
+  parentMissionsValue: (amount: number) => `${amount} od 4`,
+  parentPetsValue: (amount: number) => `${amount} od 8`,
+  parentCountValue: (amount: number) => `${amount}`,
+  parentRecentHeading: "Nedavne aktivnosti u učenju",
+  parentRecentEmpty: "Još nema nedavnih aktivnosti u učenju.",
   grantHeading: "Dodaj zlatnike",
   grantButton: "Dodaj u novčanik",
   pendingHeading: "Poslovi za pregled",
@@ -251,9 +390,12 @@ export const HR = {
   inventoryDetails: (name: string, amount: number) => `${name} — količina ${amount}`,
   quantityValue: (amount: number) => `Količina: ${amount}`,
   slotName: (number: number) => `Mjesto ${number}`,
+  houseSlotName: (kind: SlotKind, position: number) => `${["Prvo", "Drugo", "Treće"][position - 1] ?? `${position}.`} mjesto za ${kind === "pet" ? "ljubimca" : "stvar"}`,
+  houseSlotOption: (areaName: string, kind: SlotKind, position: number) => `${areaName} — ${kind === "pet" ? "mjesto za ljubimca" : "mjesto za stvar"} ${position}`,
   placeAccessible: (name: string, slot: string) => `Postavi ${name} u ${slot}`,
-  moveAccessible: (name: string) => `Premjesti ${name}`,
-  removeAccessible: (name: string) => `Ukloni ${name} iz kuće`,
+  placeSlotAccessible: (name: string) => `Odaberi područje i mjesto za ${name}`,
+  moveAccessible: (name: string) => `Premjesti ${name} u odabrano mjesto`,
+  removeAccessible: (name: string, areaName?: string) => `Ukloni ${name}${areaName ? ` iz područja ${areaName}` : " iz kuće"}`,
   buyAccessible: (name: string, price: number) => `Kupi ${name} za ${price} zlatnika`,
   choreAccessible: (name: string) => `Označi posao ${name} kao gotov`,
   approveAccessible: (name: string) => `Potvrdi posao ${name}`,

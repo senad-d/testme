@@ -27,6 +27,7 @@ body {
 }
 button, input, select { font: inherit; }
 button, input, select { min-height: 44px; }
+button { min-inline-size: 44px; }
 button {
   border: 2px solid var(--blue);
   border-radius: .8rem;
@@ -107,7 +108,74 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .activity-list { padding-left: 1.4rem; }
 .activity-list li { margin-block: .45rem; }
 .house-grid { margin-bottom: 1.5rem; }
+.house-composition, .house-areas, .house-area, .house-area-slots, .house-slot { min-width: 0; max-width: 100%; }
+.house-composition { margin-bottom: 1.5rem; }
+.house-areas { display: grid; grid-template-columns: minmax(0, 1fr); gap: 1rem; }
+.house-area {
+  position: relative;
+  min-width: 0;
+  padding: 4.5rem 1rem 1rem;
+  border: 4px solid var(--house-wall);
+  border-radius: 1.25rem;
+  background: var(--house-pattern), var(--house-surface);
+  box-shadow: var(--shadow);
+  overflow-wrap: anywhere;
+}
+.house-area > h2 { margin-top: 0; }
+.house-area > p { font-weight: 700; }
+.house-area .house-grid { margin-bottom: 0; }
 .house-slot { border-style: dashed; }
+.house-slot select { max-width: 100%; }
+.slot-actions > button { flex: 1 1 7rem; }
+.house-area-cue {
+  position: absolute;
+  top: .7rem;
+  right: 1rem;
+  display: block;
+  pointer-events: none;
+}
+.house-area-living-room .house-area-cue {
+  width: 3.2rem;
+  height: 2.8rem;
+  border: .3rem solid var(--house-wall);
+  background:
+    linear-gradient(90deg, transparent 44%, var(--house-wall) 45% 55%, transparent 56%),
+    linear-gradient(transparent 44%, var(--house-wall) 45% 55%, transparent 56%),
+    #e9f8ff;
+  box-shadow: inset 0 0 0 .2rem white;
+}
+.house-area-pet-room .house-area-cue {
+  width: 2.5rem;
+  height: 3.25rem;
+  border: .3rem solid var(--house-wall);
+  border-bottom: 0;
+  border-radius: 1.2rem 1.2rem 0 0;
+  background: #fff7e3;
+}
+.house-area-pet-room .house-area-cue::after {
+  content: "";
+  position: absolute;
+  top: 1.45rem;
+  right: .3rem;
+  width: .38rem;
+  height: .38rem;
+  border-radius: 50%;
+  background: var(--house-wall);
+}
+.house-area-storage .house-area-cue {
+  width: 4.2rem;
+  height: 2.8rem;
+  border: .3rem solid var(--house-wall);
+  background: repeating-linear-gradient(0deg, #fff7e3 0 .55rem, var(--house-wall) .56rem .72rem);
+}
+.house-area-yard-stable .house-area-cue {
+  left: 1rem;
+  right: 1rem;
+  height: 2.8rem;
+  border-bottom: .35rem solid var(--house-wall);
+  background: repeating-linear-gradient(90deg, var(--house-wall) 0 .32rem, transparent .33rem 1.55rem);
+  clip-path: polygon(0 16%, 3% 0, 6% 16%, 6% 100%, 100% 100%, 100% 16%, 97% 0, 94% 16%, 94% 100%, 0 100%);
+}
 .inline-form { display: grid; grid-template-columns: minmax(8rem, 1fr) minmax(8rem, 1fr) auto; align-items: end; gap: .6rem; margin-bottom: .7rem; }
 .request { display: flex; justify-content: space-between; gap: 1rem; align-items: center; margin-top: .7rem; }
 .request div { display: flex; flex-wrap: wrap; gap: .5rem; }
@@ -118,6 +186,24 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .pin-form { display: grid; gap: .6rem; }
 .local-notice { padding: .7rem; border-left: 5px solid var(--yellow); background: #fff9dc; font-weight: 700; }
 .lock-button { display: block; margin: 0 0 1rem auto; border-color: var(--purple); }
+.theme-sun {
+  --house-wall: #9a6500;
+  --house-surface: #fff5bf;
+  --house-pattern: repeating-linear-gradient(135deg, rgb(255 255 255 / 0%) 0 1rem, rgb(255 255 255 / 58%) 1rem 1.5rem);
+  --house-roof: repeating-linear-gradient(135deg, #d66b31 0 1.1rem, #b74922 1.1rem 1.3rem);
+}
+.theme-sea {
+  --house-wall: #286c86;
+  --house-surface: #ddf6ff;
+  --house-pattern: radial-gradient(ellipse at 50% 110%, transparent 0 47%, rgb(70 160 194 / 25%) 49% 56%, transparent 58%) 0 0 / 3rem 2rem;
+  --house-roof: repeating-linear-gradient(135deg, #257ca3 0 1.1rem, #175b78 1.1rem 1.3rem);
+}
+.theme-forest {
+  --house-wall: #376d3d;
+  --house-surface: #e8f5df;
+  --house-pattern: radial-gradient(circle, rgb(55 109 61 / 22%) 0 .22rem, transparent .24rem) 0 0 / 1.7rem 1.7rem;
+  --house-roof: repeating-linear-gradient(135deg, #4f8146 0 1.1rem, #2f5f35 1.1rem 1.3rem);
+}
 .theme-sea .house-slot { background: #e6f8ff; border-color: #4f9fb8; }
 .theme-forest .house-slot { background: #edf8e7; border-color: #4d8a54; }
 .theme-sun .house-slot { background: #fff9d6; border-color: #d8a72c; }
@@ -179,6 +265,37 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .guide-mini { font-size: 2.6rem; }
 .journey-done { border-color: var(--mint); background: #edfff4; }
 
+@media (min-width: 768px) {
+  .house-composition { padding-top: 4.7rem; }
+  .house-areas {
+    position: relative;
+    isolation: isolate;
+    grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr) minmax(12rem, .9fr);
+    grid-template-areas:
+      "living pet yard"
+      "storage storage yard";
+    gap: 0;
+  }
+  .house-areas::before {
+    content: "";
+    position: absolute;
+    z-index: -1;
+    top: -4.7rem;
+    left: -.7rem;
+    right: 28.5%;
+    height: 5.2rem;
+    border: .35rem solid var(--house-wall);
+    clip-path: polygon(50% 0, 100% 88%, 96% 100%, 4% 100%, 0 88%);
+    background: var(--house-roof);
+    filter: drop-shadow(0 .45rem 0 rgb(36 50 74 / 16%));
+  }
+  .house-area { border-radius: 0; box-shadow: none; }
+  .house-area-living-room { grid-area: living; border-radius: 1rem 0 0 0; }
+  .house-area-pet-room { grid-area: pet; border-left: 0; }
+  .house-area-storage { grid-area: storage; border-top: 0; border-radius: 0 0 0 1rem; }
+  .house-area-yard-stable { grid-area: yard; border-left: 0; border-radius: 0 1rem 1rem 0; }
+}
+
 @media (max-width: 800px) {
   .journey-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .journey-path::before { display: none; }
@@ -216,10 +333,10 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
   button { transition: background-color .15s ease, transform .15s ease, box-shadow .15s ease; }
   button:active:not(:disabled) { transform: scale(.97); }
   .logo { animation: mascot-float 2.8s ease-in-out infinite; }
-  .balance-card, .catalog-card, .panel, .house-slot { animation: card-arrive .42s ease-out both; }
-  .card-grid > :nth-child(2), .house-grid > :nth-child(2) { animation-delay: .06s; }
-  .card-grid > :nth-child(3), .house-grid > :nth-child(3) { animation-delay: .12s; }
-  .card-grid > :nth-child(4), .house-grid > :nth-child(4) { animation-delay: .18s; }
+  .balance-card, .catalog-card, .panel, .house-slot, .house-area { animation: card-arrive .42s ease-out both; }
+  .card-grid > :nth-child(2), .house-grid > :nth-child(2), .house-areas > :nth-child(2) { animation-delay: .06s; }
+  .card-grid > :nth-child(3), .house-grid > :nth-child(3), .house-areas > :nth-child(3) { animation-delay: .12s; }
+  .card-grid > :nth-child(4), .house-grid > :nth-child(4), .house-areas > :nth-child(4) { animation-delay: .18s; }
   .catalog-emoji, .decoration, .parent-decoration { animation: pet-bob 2.4s ease-in-out infinite; }
   nav button.active { animation: nav-pop .35s ease-out; }
   .feedback.has-feedback > span { display: inline-block; animation: celebrate .45s ease-out; }
@@ -234,7 +351,7 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button, .logo, .balance-card, .catalog-card, .panel, .house-slot, .catalog-emoji, .decoration, .parent-decoration, nav button.active, .feedback.has-feedback > span, .scene-guide, .scene-cloud, .journey-stop.is-current, .badge.is-earned > span {
+  button, .logo, .balance-card, .catalog-card, .panel, .house-slot, .house-area, .catalog-emoji, .decoration, .parent-decoration, nav button.active, .feedback.has-feedback > span, .scene-guide, .scene-cloud, .journey-stop.is-current, .badge.is-earned > span {
     animation: none !important;
     transition: none !important;
   }

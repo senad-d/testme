@@ -1,12 +1,12 @@
 import "./styles.css";
 import { ACTIVITY_CODES, LOAD_CODES, RESULT_CODES, loadState, saveState, type AppStateV1, type ResultCode, type StorageLike } from "./game/store";
-import { ADVENTURE_BADGES, ADVENTURE_MESSAGES, ADVENTURE_MISSIONS, CHORES, CONFIG, EARNINGS_CHALLENGE, HR, ITEMS, LOAD_MESSAGES, MONEY_SCHOOL, PARENT_ACCESS_MESSAGES, PETS, RESULT_MESSAGES, THEMES, activityMessage, adventureMessageForCode, messageForCode } from "./content/hr";
+import { ADVENTURE_BADGES, ADVENTURE_MESSAGES, ADVENTURE_MISSIONS, ADVENTURE_PRACTICE, CHORES, CONFIG, EARNINGS_CHALLENGE, HR, ITEMS, LOAD_MESSAGES, MONEY_SCHOOL, PARENT_ACCESS_MESSAGES, PETS, RESULT_MESSAGES, THEMES, activityMessage, adventureMessageForCode, houseAreaContent, messageForCode } from "./content/hr";
 import { inspectParentAccess, unlockParentAccess } from "./game/parent-access";
 import { borrowCoins, grantCoins, repayDebt, saveCoins, withdrawSavings } from "./game/money";
 import { approveChore, requestChore, returnChore } from "./game/chores";
 import { buyItem, buyPet } from "./game/shop";
-import { moveAsset, placeAsset, removeAsset, selectTheme } from "./game/house";
-import { ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, ANSWER_IDS, BADGE_IDS, GLOSSARY_IDS, MISSION_IDS, answerMission, loadAdventureState, nextAdventureEventSequence, recordAdventureEvent, saveAdventureState, type AdventureEvent, type AdventureResultCode, type AdventureStateV1, type MissionId } from "./game/adventure";
+import { HOUSE_AREAS, moveAsset, placeAsset, removeAsset, selectTheme, type HouseSlot, type SlotKind } from "./game/house";
+import { ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, ANSWER_IDS, BADGE_IDS, GLOSSARY_IDS, MISSION_IDS, answerMission, loadAdventureState, nextAdventureEventSequence, recordAdventureEvent, saveAdventureState, type AdventureEvent, type AdventureResultCode, type AdventureStateV1, type GlossaryId, type MissionId } from "./game/adventure";
 
 export { ACTIVITY_CODES, LOAD_CODES, RESULT_CODES, ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, MISSION_IDS, ANSWER_IDS, BADGE_IDS, GLOSSARY_IDS, activityMessage, adventureMessageForCode, messageForCode };
 
@@ -69,7 +69,29 @@ function currentMissionPanel(adventure: AdventureStateV1): string {
   return `<aside class="mission-panel"><div aria-hidden="true" class="guide-mini">🐶⭐</div><div><strong>${escapeHtml(HR.currentMissionHeading)}</strong><h2>${escapeHtml(content.title)}</h2><p>${escapeHtml(content.instruction)}</p></div><button data-nav="adventure">${escapeHtml(HR.returnAdventure)}</button></aside>`;
 }
 
-function renderAdventure(adventure: AdventureStateV1): string {
+function renderPractice(cardIndex: number, practiceFeedback: string, correctCards: ReadonlySet<GlossaryId>): string {
+  const card = ADVENTURE_PRACTICE[cardIndex];
+  const completed = correctCards.has(card.id);
+  return `<section class="panel practice-deck" aria-labelledby="practice-heading">
+    <h2 id="practice-heading">${escapeHtml(HR.practiceHeading)}</h2>
+    <p id="practice-intro">${escapeHtml(HR.practiceIntro)}</p>
+    <p><strong data-practice-progress>${escapeHtml(HR.practiceProgress(cardIndex + 1, ADVENTURE_PRACTICE.length))}</strong> — <span data-practice-score>${escapeHtml(HR.practiceScore(correctCards.size, ADVENTURE_PRACTICE.length))}</span></p>
+    <article class="question-card" data-practice-card="${card.id}" aria-labelledby="practice-card-title" aria-describedby="practice-intro practice-card-status">
+      <p class="eyebrow">${escapeHtml(HR.practiceCardLabel)}</p>
+      <h3 id="practice-card-title">${escapeHtml(card.title)}</h3>
+      <p>${escapeHtml(card.scenario)}</p>
+      <div class="answer-grid">${card.choices.map((choice) => `<button type="button" data-action="answer-practice" data-card="${card.id}" data-answer="${choice.id}" aria-label="${escapeHtml(HR.practiceAnswerAccessible(card.title, choice.label))}">${escapeHtml(choice.label)}</button>`).join("")}</div>
+      <p id="practice-card-status">${escapeHtml(completed ? HR.practiceCompleted : HR.practicePending)}</p>
+      <p data-practice-feedback role="status" aria-live="polite" aria-atomic="true">${escapeHtml(practiceFeedback)}</p>
+    </article>
+    <div class="slot-actions" role="group" aria-label="${escapeHtml(HR.practiceCardLabel)}">
+      <button type="button" data-action="previous-practice" ${cardIndex === 0 ? "disabled" : ""}>${escapeHtml(HR.practicePrevious)}</button>
+      <button type="button" data-action="next-practice" ${cardIndex === ADVENTURE_PRACTICE.length - 1 ? "disabled" : ""}>${escapeHtml(HR.practiceNext)}</button>
+    </div>
+  </section>`;
+}
+
+function renderAdventure(adventure: AdventureStateV1, practiceCardIndex: number, practiceFeedback: string, correctPracticeCards: ReadonlySet<GlossaryId>): string {
   const active = adventure.activeMission;
   const stops = MISSION_IDS.map((mission, index) => {
     const content = ADVENTURE_MISSIONS[mission];
@@ -95,6 +117,7 @@ function renderAdventure(adventure: AdventureStateV1): string {
   return `<section id="view-adventure" class="view" data-view="adventure">${adventureScene("adventure")}<div class="guide-card"><span aria-hidden="true">🐶</span><div><h1>${escapeHtml(HR.adventureHeading)}</h1><p><strong>${escapeHtml(HR.adventureGuide)}</strong> — ${escapeHtml(HR.adventureGuideText)}</p><p>${escapeHtml(HR.adventureIntro)}</p></div></div>
     <section class="progress-banner" aria-label="${escapeHtml(HR.starsLabel)}"><span aria-hidden="true">${"⭐".repeat(adventure.stars)}${"☆".repeat(4 - adventure.stars)}</span><strong>${escapeHtml(HR.starsValue(adventure.stars))}</strong></section>
     <section aria-label="${escapeHtml(HR.adventureMapLabel)}"><div class="journey-path">${stops}</div></section>${missionCard}
+    ${renderPractice(practiceCardIndex, practiceFeedback, correctPracticeCards)}
     <section><h2>${escapeHtml(HR.badgesHeading)}</h2><div class="badge-shelf">${badgeShelf}</div></section>
     <section class="money-school"><h2>${escapeHtml(HR.moneySchoolHeading)}</h2><p>${escapeHtml(HR.moneySchoolIntro)}</p><div class="school-grid">${school}</div></section></section>`;
 }
@@ -224,17 +247,17 @@ function renderShop(state: AppStateV1, adventure: AdventureStateV1, category: Sh
   const inventoryItems = ITEMS.filter(({ id }) => (state.itemQuantities[id] ?? 0) > 0);
   const categoryControls = SHOP_CATEGORY_IDS.map((id) => {
     const selected = category === id;
-    return `<button type="button" data-action="set-shop-category" data-category="${id}" aria-pressed="${selected}"><span>${escapeHtml(SHOP_CATEGORY_LABELS[id])}</span>${selected ? `<span class="filter-check" aria-hidden="true">✓</span><span class="sr-only">Odabrano</span>` : ""}</button>`;
+    return `<button type="button" data-action="set-shop-category" data-category="${id}" aria-controls="shop-results" aria-pressed="${selected}"><span>${escapeHtml(SHOP_CATEGORY_LABELS[id])}</span>${selected ? `<span class="filter-check" aria-hidden="true">✓</span><span class="sr-only">Odabrano</span>` : ""}</button>`;
   }).join("");
   return `<section id="view-shop" class="view" data-view="shop">${adventureScene("shop")}
     <h1>${escapeHtml(HR.shopHeading)}</h1><p>${escapeHtml(HR.shopIntro)}</p>${currentMissionPanel(adventure)}
     <fieldset class="panel shop-filters"><legend>Filtriraj ponudu</legend>
       <div class="shop-category-controls" role="group" aria-label="Kategorije ponude">${categoryControls}</div>
-      <button type="button" class="affordability-filter" data-action="toggle-shop-affordability" aria-pressed="${affordableOnly}"><span>Mogu kupiti</span>${affordableOnly ? `<span class="filter-check" aria-hidden="true">✓</span><span class="sr-only">Uključeno</span>` : ""}</button>
+      <button type="button" class="affordability-filter" data-action="toggle-shop-affordability" aria-controls="shop-results" aria-pressed="${affordableOnly}"><span>Mogu kupiti</span>${affordableOnly ? `<span class="filter-check" aria-hidden="true">✓</span><span class="sr-only">Uključeno</span>` : ""}</button>
     </fieldset>
     <section aria-labelledby="shop-results-heading"><h2 id="shop-results-heading">${escapeHtml(SHOP_CATEGORY_LABELS[category])}</h2>
       <div id="shop-results" class="card-grid shop-results">${visibleEntries.map(({ kind, entry, category: entryCategory }) => renderCatalogCard(kind, entry, state, entryCategory)).join("")}</div>
-      ${visibleEntries.length ? "" : `<div class="panel shop-empty" role="status"><p>Nema ponuda koje odgovaraju odabranim filtrima.</p><button type="button" data-action="reset-shop-filters">Prikaži sve</button></div>`}
+      ${visibleEntries.length ? "" : `<div class="panel shop-empty" role="status"><p>Nema ponuda koje odgovaraju odabranim filtrima.</p><button type="button" data-action="reset-shop-filters" aria-controls="shop-results">Prikaži sve</button></div>`}
     </section>
     <section class="panel" data-shop-inventory><h2>${escapeHtml(HR.inventoryHeading)}</h2>
       ${state.ownedPets.length ? `<ul>${state.ownedPets.map((owned) => `<li>${escapeHtml(PETS.find(({ id }) => id === owned.catalogId)?.name ?? HR.genericError)}</li>`).join("")}</ul>` : `<p>${escapeHtml(RESULT_MESSAGES["pet-inventory-empty"])}</p>`}
@@ -252,38 +275,86 @@ function itemName(id: string): string {
   return ITEMS.find((item) => item.id === id)?.name ?? HR.genericError;
 }
 
-function slotOptions(slots: string[], prefix: "pet" | "item", state: AppStateV1, exclude?: string): string {
-  const placements = prefix === "pet" ? state.petPlacements : state.itemPlacements;
-  return slots.filter((slot) => slot !== exclude && placements[slot] === null).map((slot) => `<option value="${slot}">${escapeHtml(HR.slotName(Number(slot.split("-")[1])))}</option>`).join("");
+interface HouseSlotPresentation {
+  areaName: string;
+  kind: SlotKind;
+  position: number;
+  label: string;
+  optionLabel: string;
 }
 
-function renderPlacedSlot(kind: "pet" | "item", slot: string, value: number | string | null, state: AppStateV1): string {
-  const number = Number(slot.split("-")[1]);
-  if (value === null) return `<article class="house-slot"><h3>${escapeHtml(HR.slotName(number))}</h3><p>${escapeHtml(HR.emptySlot)}</p></article>`;
-  const name = kind === "pet" ? petName(state, value as number) : itemName(value as string);
-  const slots = kind === "pet" ? Object.keys(state.petPlacements) : Object.keys(state.itemPlacements);
-  return `<article class="house-slot"><h3>${escapeHtml(HR.slotName(number))}</h3><p><strong>${escapeHtml(name)}</strong></p>
-    <label for="move-${slot}">${escapeHtml(HR.moveLabel)}</label><select id="move-${slot}" data-move-select="${slot}">${slotOptions(slots, kind, state, slot)}</select>
-    <div class="slot-actions"><button data-action="move-${kind}" data-slot="${slot}" aria-label="${escapeHtml(HR.moveAccessible(name))}">${escapeHtml(HR.moveButton)}</button><button data-action="remove-${kind}" data-slot="${slot}" aria-label="${escapeHtml(HR.removeAccessible(name))}">${escapeHtml(HR.removeButton)}</button></div>
+function houseSlotPresentation(slot: HouseSlot): HouseSlotPresentation | null {
+  for (const area of HOUSE_AREAS) {
+    const position = area.slots.findIndex((areaSlot) => areaSlot === slot) + 1;
+    if (position > 0) {
+      const content = houseAreaContent(area.id);
+      if (!content) return null;
+      const kind: SlotKind = slot.startsWith("pet-") ? "pet" : "item";
+      return {
+        areaName: content.name,
+        kind,
+        position,
+        label: HR.houseSlotName(kind, position),
+        optionLabel: HR.houseSlotOption(content.name, kind, position),
+      };
+    }
+  }
+  return null;
+}
+
+function slotsForKind(kind: SlotKind): HouseSlot[] {
+  return HOUSE_AREAS.flatMap(({ slots }) => slots).filter((slot) => slot.startsWith(`${kind}-`));
+}
+
+function slotOptions(slots: readonly HouseSlot[], kind: SlotKind, state: AppStateV1, exclude?: string): string {
+  const placements = kind === "pet" ? state.petPlacements : state.itemPlacements;
+  return slots.filter((slot) => slot !== exclude && placements[slot] === null).map((slot) => {
+    const presentation = houseSlotPresentation(slot);
+    if (!presentation) return "";
+    return `<option value="${slot}">${escapeHtml(presentation.optionLabel)}</option>`;
+  }).join("");
+}
+
+function renderPlacedSlot(slot: HouseSlot, state: AppStateV1): string {
+  const presentation = houseSlotPresentation(slot);
+  if (!presentation) return "";
+  const placements = presentation.kind === "pet" ? state.petPlacements : state.itemPlacements;
+  const value = placements[slot];
+  const accessibleSlotName = `${presentation.areaName}: ${presentation.label}`;
+  if (value === null) return `<article class="house-slot" data-house-slot="${slot}" aria-label="${escapeHtml(accessibleSlotName)}"><h3>${escapeHtml(presentation.label)}</h3><p>${escapeHtml(HR.emptySlot)}</p></article>`;
+  const name = presentation.kind === "pet" ? petName(state, value as number) : itemName(value as string);
+  const slots = slotsForKind(presentation.kind);
+  return `<article class="house-slot" data-house-slot="${slot}" aria-label="${escapeHtml(`${accessibleSlotName}: ${name}`)}"><h3>${escapeHtml(presentation.label)}</h3><p><strong>${escapeHtml(name)}</strong></p>
+    <label for="move-${slot}">${escapeHtml(`${HR.moveLabel}: ${name}`)}</label><select id="move-${slot}" data-move-select="${slot}" aria-label="${escapeHtml(`${HR.moveAccessible(name)} — ${accessibleSlotName}`)}">${slotOptions(slots, presentation.kind, state, slot)}</select>
+    <div class="slot-actions"><button data-action="move-${presentation.kind}" data-slot="${slot}" aria-label="${escapeHtml(HR.moveAccessible(name))}">${escapeHtml(HR.moveButton)}</button><button data-action="remove-${presentation.kind}" data-slot="${slot}" aria-label="${escapeHtml(HR.removeAccessible(name, presentation.areaName))}">${escapeHtml(HR.removeButton)}</button></div>
   </article>`;
 }
 
 function renderHouse(state: AppStateV1, adventure: AdventureStateV1): string {
-  const petSlots = Object.keys(state.petPlacements);
-  const itemSlots = Object.keys(state.itemPlacements);
+  const petSlots = slotsForKind("pet");
+  const itemSlots = slotsForKind("item");
   const unplacedPets = state.ownedPets.filter(({ id }) => !Object.values(state.petPlacements).includes(id));
   const unplacedItems = ITEMS.filter(({ id }) => (state.itemQuantities[id] ?? 0) > Object.values(state.itemPlacements).filter((placed) => placed === id).length);
   const hasFreePetSlot = Object.values(state.petPlacements).includes(null);
   const hasFreeItemSlot = Object.values(state.itemPlacements).includes(null);
+  const areas = HOUSE_AREAS.map((area) => {
+    const content = houseAreaContent(area.id);
+    if (!content) return "";
+    return `<section class="house-area house-area-${area.id}" data-house-area="${area.id}" aria-labelledby="house-area-${area.id}" aria-describedby="house-area-description-${area.id}">
+      <span class="house-area-cue" aria-hidden="true"></span>
+      <h2 id="house-area-${area.id}">${escapeHtml(content.name)}</h2>
+      <p id="house-area-description-${area.id}">${escapeHtml(content.description)}</p>
+      <div class="house-grid house-area-slots" role="group" aria-label="${escapeHtml(HR.areaSlotsLabel(content.name))}">${area.slots.map((slot) => renderPlacedSlot(slot, state)).join("")}</div>
+    </section>`;
+  }).join("");
   return `<section id="view-house" class="view theme-${state.selectedTheme}" data-view="house">${adventureScene("house")}
     <h1>${escapeHtml(HR.houseHeading)}</h1><p>${escapeHtml(HR.houseIntro)}</p><span class="decoration" aria-hidden="true">✨</span>${currentMissionPanel(adventure)}
     <form data-form="theme" class="panel inline-form"><label for="theme">${escapeHtml(HR.themeLabel)}</label><select id="theme" name="theme">${THEMES.map((theme) => `<option value="${theme.id}" ${theme.id === state.selectedTheme ? "selected" : ""}>${escapeHtml(theme.name)}</option>`).join("")}</select><button class="primary" type="submit">${escapeHtml(HR.selectThemeButton)}</button></form>
-    <h2>${escapeHtml(HR.petSlotsHeading)}</h2><div class="house-grid">${petSlots.map((slot) => renderPlacedSlot("pet", slot, state.petPlacements[slot], state)).join("")}</div>
-    <h2>${escapeHtml(HR.itemSlotsHeading)}</h2><div class="house-grid">${itemSlots.map((slot) => renderPlacedSlot("item", slot, state.itemPlacements[slot], state)).join("")}</div>
-    <section class="panel"><h2>${escapeHtml(HR.unplacedPets)}</h2>${unplacedPets.length ? unplacedPets.map((pet) => {
-      const name = petName(state, pet.id); return `<form data-form="place-pet" data-id="${pet.id}" class="inline-form"><label for="pet-slot-${pet.id}">${escapeHtml(name)}</label><select id="pet-slot-${pet.id}" name="slot" aria-label="${escapeHtml(HR.slotLabel)}">${slotOptions(petSlots, "pet", state)}</select><button class="primary" type="submit" aria-label="${escapeHtml(HR.placeAccessible(name, HR.houseHeading))}" ${hasFreePetSlot ? "" : "disabled"}>${escapeHtml(HR.placeButton)}</button>${hasFreePetSlot ? "" : `<p>${escapeHtml(HR.houseFull)}</p>`}</form>`;
+    <div class="house-composition"><div class="house-areas">${areas}</div></div>
+    <section class="panel"><h2>${escapeHtml(HR.unplacedPets)}</h2>${!hasFreePetSlot && unplacedPets.length ? `<p data-house-full="pets">${escapeHtml(HR.petHouseFullGuidance)}</p>` : ""}${unplacedPets.length ? unplacedPets.map((pet) => {
+      const name = petName(state, pet.id); return `<form data-form="place-pet" data-id="${pet.id}" class="inline-form"><label for="pet-slot-${pet.id}">${escapeHtml(name)}</label><select id="pet-slot-${pet.id}" name="slot" aria-label="${escapeHtml(HR.placeSlotAccessible(name))}">${slotOptions(petSlots, "pet", state)}</select><button class="primary" type="submit" aria-label="${escapeHtml(HR.placeAccessible(name, HR.houseHeading))}" ${hasFreePetSlot ? "" : "disabled"}>${escapeHtml(HR.placeButton)}</button></form>`;
     }).join("") : `<p>${escapeHtml(RESULT_MESSAGES["pet-inventory-empty"])}</p>`}
-    <h2>${escapeHtml(HR.unplacedItems)}</h2>${unplacedItems.length ? unplacedItems.map((item) => `<form data-form="place-item" data-id="${item.id}" class="inline-form"><label for="item-slot-${item.id}">${escapeHtml(HR.inventoryDetails(item.name, state.itemQuantities[item.id] - Object.values(state.itemPlacements).filter((placed) => placed === item.id).length))}</label><select id="item-slot-${item.id}" name="slot" aria-label="${escapeHtml(HR.slotLabel)}">${slotOptions(itemSlots, "item", state)}</select><button class="primary" type="submit" aria-label="${escapeHtml(HR.placeAccessible(item.name, HR.houseHeading))}" ${hasFreeItemSlot ? "" : "disabled"}>${escapeHtml(HR.placeButton)}</button>${hasFreeItemSlot ? "" : `<p>${escapeHtml(HR.houseFull)}</p>`}</form>`).join("") : `<p>${escapeHtml(RESULT_MESSAGES["item-inventory-empty"])}</p>`}</section>
+    <h2>${escapeHtml(HR.unplacedItems)}</h2>${unplacedItems.length ? unplacedItems.map((item) => `<form data-form="place-item" data-id="${item.id}" class="inline-form"><label for="item-slot-${item.id}">${escapeHtml(HR.inventoryDetails(item.name, state.itemQuantities[item.id] - Object.values(state.itemPlacements).filter((placed) => placed === item.id).length))}</label><select id="item-slot-${item.id}" name="slot" aria-label="${escapeHtml(HR.placeSlotAccessible(item.name))}">${slotOptions(itemSlots, "item", state)}</select><button class="primary" type="submit" aria-label="${escapeHtml(HR.placeAccessible(item.name, HR.houseHeading))}" ${hasFreeItemSlot ? "" : "disabled"}>${escapeHtml(HR.placeButton)}</button>${hasFreeItemSlot ? "" : `<p>${escapeHtml(HR.houseFull)}</p>`}</form>`).join("") : `<p>${escapeHtml(RESULT_MESSAGES["item-inventory-empty"])}</p>`}</section>
   </section>`;
 }
 
@@ -293,7 +364,27 @@ function pinInput(id: string, name: string, label: string, autocomplete: "new-pa
   return `<label for="${id}">${escapeHtml(label)}</label><input id="${id}" name="${name}" type="password" inputmode="numeric" autocomplete="${autocomplete}" pattern="[0-9]{6}" minlength="6" maxlength="6" aria-describedby="parent-pin-help" required />`;
 }
 
-function renderParent(state: AppStateV1, mode: ParentMode): string {
+function renderParentOverview(state: AppStateV1, adventure: AdventureStateV1): string {
+  const pendingChores = state.choreRequests.filter(({ status }) => status === "pending").length;
+  const itemQuantity = Object.values(state.itemQuantities).reduce((total, quantity) => total + quantity, 0);
+  const summaries = [
+    [HR.parentWalletSummary, HR.balanceValue(state.wallet)],
+    [HR.parentSavingsSummary, HR.balanceValue(state.savings)],
+    [HR.parentDebtSummary, HR.balanceValue(state.debt)],
+    [HR.parentPendingSummary, HR.parentCountValue(pendingChores)],
+    [HR.parentMissionsSummary, HR.parentMissionsValue(adventure.completedMissions.length)],
+    [HR.parentPetsSummary, HR.parentPetsValue(state.ownedPets.length)],
+    [HR.parentItemsSummary, HR.parentCountValue(itemQuantity)],
+  ] as const;
+  const recentActivities = state.activities.slice(-5).reverse();
+  return `<section class="panel parent-overview" data-parent-overview aria-labelledby="parent-overview-heading">
+    <h2 id="parent-overview-heading">${escapeHtml(HR.parentOverviewHeading)}</h2>
+    <dl class="parent-summary">${summaries.map(([label, value]) => `<div><dt>${escapeHtml(label)}</dt><dd data-parent-summary-value>${escapeHtml(value)}</dd></div>`).join("")}</dl>
+    <section data-parent-recent aria-labelledby="parent-recent-heading"><h3 id="parent-recent-heading">${escapeHtml(HR.parentRecentHeading)}</h3>${recentActivities.length ? `<ol class="activity-list">${recentActivities.map((activity) => `<li>${escapeHtml(activityMessage(activity))}</li>`).join("")}</ol>` : `<p>${escapeHtml(HR.parentRecentEmpty)}</p>`}</section>
+  </section>`;
+}
+
+function renderParent(state: AppStateV1, adventure: AdventureStateV1, mode: ParentMode): string {
   const heading = `<h1>${escapeHtml(HR.parentHeading)}</h1><p>${escapeHtml(HR.parentIntro)}</p><span class="parent-decoration" aria-hidden="true">🔐✨</span>`;
   if (mode === "unavailable") return `<section id="view-parent" class="view parent-view parent-locked" data-view="parent">${heading}<section class="panel access-panel"><h2>${escapeHtml(HR.parentUnavailableHeading)}</h2><p role="alert">${escapeHtml(HR.parentUnavailable)}</p><p>${escapeHtml(HR.parentLocalNotice)}</p></section></section>`;
   if (mode === "unprovisioned") return `<section id="view-parent" class="view parent-view parent-locked" data-view="parent">${heading}<section class="panel access-panel"><h2>${escapeHtml(HR.parentUnprovisionedHeading)}</h2><p role="alert">${escapeHtml(HR.parentUnprovisioned)}</p><p>${escapeHtml(HR.parentLocalNotice)}</p></section></section>`;
@@ -301,6 +392,7 @@ function renderParent(state: AppStateV1, mode: ParentMode): string {
 
   const pending = state.choreRequests.filter(({ status }) => status === "pending");
   return `<section id="view-parent" class="view parent-view parent-unlocked" data-view="parent">${heading}<button class="lock-button" data-action="lock-parent" aria-label="${escapeHtml(HR.parentLockAccessible)}">${escapeHtml(HR.parentLockButton)}</button>
+    ${renderParentOverview(state, adventure)}
     <section class="panel"><h2>${escapeHtml(HR.grantHeading)}</h2>${amountForm("grant", HR.grantButton)}</section>
     <section class="panel"><h2>${escapeHtml(HR.pendingHeading)}</h2>${pending.length ? pending.map((request) => {
       const chore = CHORES.find(({ id }) => id === request.choreId); const name = chore?.name ?? HR.genericError;
@@ -332,12 +424,15 @@ export function createApp(
   let goalPlan: GoalPlanResult | null = null;
   let shopCategory: ShopCategory = "all";
   let shopAffordableOnly = false;
+  let practiceCardIndex = 0;
+  let practiceFeedback = "";
+  const correctPracticeCards = new Set<GlossaryId>();
   const adventureLoadFeedback = loadedAdventure.code && loadedAdventure.code !== "adventure-load-empty" ? ADVENTURE_MESSAGES[loadedAdventure.code] : "";
   let feedback = loaded.code && loaded.code !== "load-empty" ? LOAD_MESSAGES[loaded.code] : adventureLoadFeedback || (loaded.code ? LOAD_MESSAGES[loaded.code] : "");
   let reaction: "correct" | "step" | "star" | "complete" | "" = "";
 
   function render(): void {
-    const sections: Record<View, string> = { adventure: renderAdventure(adventure), money: renderMoney(state, adventure, goalPlan), chores: renderChores(state, adventure, earningsChallengeRound, earningsChallengeFeedback), shop: renderShop(state, adventure, shopCategory, shopAffordableOnly), house: renderHouse(state, adventure), parent: renderParent(state, parentMode) };
+    const sections: Record<View, string> = { adventure: renderAdventure(adventure, practiceCardIndex, practiceFeedback, correctPracticeCards), money: renderMoney(state, adventure, goalPlan), chores: renderChores(state, adventure, earningsChallengeRound, earningsChallengeFeedback), shop: renderShop(state, adventure, shopCategory, shopAffordableOnly), house: renderHouse(state, adventure), parent: renderParent(state, adventure, parentMode) };
     root.innerHTML = `<a class="skip-link" href="#main-content">${escapeHtml(HR.skipLink)}</a><header class="app-header"><div><span class="logo" aria-hidden="true">🐾</span><strong>${escapeHtml(HR.appName)}</strong><p>${escapeHtml(HR.welcome)}</p></div><p class="fictional-notice">${escapeHtml(HR.fictionalNotice)}</p></header>
       <nav aria-label="${escapeHtml(HR.navigationLabel)}">${views.map((view) => `<button data-nav="${view.id}" ${view.id === activeView ? `class="active" aria-current="page"` : ""}><span>${escapeHtml(view.label)}</span>${view.id === activeView ? `<span class="sr-only">${escapeHtml(HR.currentView)}</span>` : ""}</button>`).join("")}</nav>
       <div id="feedback" class="feedback${feedback ? " has-feedback" : ""}${reaction ? ` reaction-${reaction}` : ""}" role="status" aria-live="polite" aria-label="${escapeHtml(HR.feedbackLabel)}">${feedback ? `<span aria-hidden="true">🎉</span> ` : ""}${escapeHtml(feedback)}</div>
@@ -429,6 +524,23 @@ export function createApp(
         feedback = progress.code === "adventure-answer-wrong" ? ADVENTURE_MISSIONS[mission].wrongExplanation : adventureMessageForCode(progress.code);
         reaction = "";
       }
+      render(); return;
+    }
+    if (action === "answer-practice") {
+      const card = ADVENTURE_PRACTICE[practiceCardIndex];
+      const answer = card.choices.find((choice) => choice.id === target.dataset.answer);
+      if (!answer || target.dataset.card !== card.id) return;
+      if (answer.id === card.correctAnswer) {
+        correctPracticeCards.add(card.id);
+        practiceFeedback = card.correctExplanation;
+      } else practiceFeedback = card.wrongExplanation;
+      render(); return;
+    }
+    if (action === "previous-practice" || action === "next-practice") {
+      const nextIndex = practiceCardIndex + (action === "previous-practice" ? -1 : 1);
+      if (nextIndex < 0 || nextIndex >= ADVENTURE_PRACTICE.length) return;
+      practiceCardIndex = nextIndex;
+      practiceFeedback = "";
       render(); return;
     }
     if (action === "answer-earnings-challenge") {
