@@ -70,8 +70,8 @@ export const THEMES = [
 ] as const;
 
 export interface HouseAreaContent {
-  name: string;
-  description: string;
+  readonly name: string;
+  readonly description: string;
 }
 
 export const HOUSE_AREA_CONTENT = {
@@ -262,6 +262,7 @@ export const HR = {
   practiceCompleted: "Ova je kartica točno riješena u ovoj vježbi.",
   practicePending: "Ova kartica još nije točno riješena u ovoj vježbi.",
   practiceAnswerAccessible: (title: string, answer: string) => `Odaberi odgovor za karticu ${title}: ${answer}`,
+  practiceNavigationLabel: "Kretanje karticama za vježbu",
   practicePrevious: "Prethodna kartica",
   practiceNext: "Sljedeća kartica",
   decorativeSceneLabel: "Ukrasni krajolik pustolovine",
@@ -327,7 +328,7 @@ export const HR = {
   itemSlotsHeading: "Mjesta za stvari",
   emptySlot: "Slobodno mjesto",
   houseFull: "Sva odgovarajuća mjesta trenutačno su zauzeta.",
-  petHouseFullGuidance: "Sva četiri mjesta za ljubimce su zauzeta. Ostali ljubimci ostaju ovdje i čekaju slobodno mjesto.",
+  petHouseFullGuidance: "Sva su četiri mjesta za ljubimce zauzeta. Ostali ljubimci ostaju na popisu i čekaju slobodno mjesto.",
   areaSlotsLabel: (areaName: string) => `Mjesta u području ${areaName}`,
   assetLabel: "Što želiš postaviti?",
   slotLabel: "Odaberi mjesto",
@@ -366,6 +367,7 @@ export const HR = {
   parentMissionsSummary: "Dovršene glavne misije",
   parentPetsSummary: "Kupljeni ljubimci",
   parentItemsSummary: "Ukupno kupljenih stvari",
+  coinValue: (amount: number) => `${amount} ${amount % 10 === 1 && amount % 100 !== 11 ? "zlatnik" : "zlatnika"}`,
   parentMissionsValue: (amount: number) => `${amount} od 4`,
   parentPetsValue: (amount: number) => `${amount} od 8`,
   parentCountValue: (amount: number) => `${amount}`,
@@ -484,15 +486,17 @@ export const RESULT_MESSAGES: Record<ResultCode, string> = {
 };
 
 export function activityMessage(activity: ActivityEntry): string {
+  const amount = HR.coinValue(activity.amount);
+  const singular = activity.amount % 10 === 1 && activity.amount % 100 !== 11;
   switch (activity.code) {
-    case "coins-granted": return `Roditelj je dodao ${activity.amount} zlatnika.`;
-    case "coins-saved": return `U kasicu je spremljeno ${activity.amount} zlatnika.`;
-    case "savings-withdrawn": return `Iz kasice je uzeto ${activity.amount} zlatnika.`;
-    case "coins-borrowed": return `Posuđeno je ${activity.amount} zlatnika u igri.`;
-    case "debt-repaid": return `Vraćeno je ${activity.amount} zlatnika duga.`;
-    case "chore-reward-paid": return `Za posao ${activity.name} zarađeno je ${activity.amount} zlatnika.`;
-    case "pet-purchased": return `Kupljen je ljubimac ${activity.name} za ${activity.amount} zlatnika.`;
-    case "item-purchased": return `Kupljena je stvar ${activity.name} za ${activity.amount} zlatnika.`;
+    case "coins-granted": return `Roditelj je dodao ${amount}.`;
+    case "coins-saved": return `U kasicu je ${singular ? "spremljen" : "spremljeno"} ${amount}.`;
+    case "savings-withdrawn": return `Iz kasice je ${singular ? "uzet" : "uzeto"} ${amount}.`;
+    case "coins-borrowed": return `${singular ? "Posuđen" : "Posuđeno"} je ${amount} u igri.`;
+    case "debt-repaid": return `${singular ? "Vraćen" : "Vraćeno"} je ${amount} duga.`;
+    case "chore-reward-paid": return `Za posao ${activity.name} ${singular ? "zarađen" : "zarađeno"} je ${amount}.`;
+    case "pet-purchased": return `Kupljen je ljubimac ${activity.name} za ${amount}.`;
+    case "item-purchased": return `Kupljena je stvar ${activity.name} za ${amount}.`;
   }
 }
 

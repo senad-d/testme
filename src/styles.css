@@ -168,6 +168,7 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
   border: .3rem solid var(--house-wall);
   background: repeating-linear-gradient(0deg, #fff7e3 0 .55rem, var(--house-wall) .56rem .72rem);
 }
+.house-area-yard-stable { background: var(--house-pattern), var(--house-yard, var(--house-surface)); }
 .house-area-yard-stable .house-area-cue {
   left: 1rem;
   right: 1rem;
@@ -189,18 +190,21 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .theme-sun {
   --house-wall: #9a6500;
   --house-surface: #fff5bf;
+  --house-yard: #eaf7c8;
   --house-pattern: repeating-linear-gradient(135deg, rgb(255 255 255 / 0%) 0 1rem, rgb(255 255 255 / 58%) 1rem 1.5rem);
   --house-roof: repeating-linear-gradient(135deg, #d66b31 0 1.1rem, #b74922 1.1rem 1.3rem);
 }
 .theme-sea {
   --house-wall: #286c86;
   --house-surface: #ddf6ff;
+  --house-yard: #e8f7d6;
   --house-pattern: radial-gradient(ellipse at 50% 110%, transparent 0 47%, rgb(70 160 194 / 25%) 49% 56%, transparent 58%) 0 0 / 3rem 2rem;
   --house-roof: repeating-linear-gradient(135deg, #257ca3 0 1.1rem, #175b78 1.1rem 1.3rem);
 }
 .theme-forest {
   --house-wall: #376d3d;
   --house-surface: #e8f5df;
+  --house-yard: #d9edc8;
   --house-pattern: radial-gradient(circle, rgb(55 109 61 / 22%) 0 .22rem, transparent .24rem) 0 0 / 1.7rem 1.7rem;
   --house-roof: repeating-linear-gradient(135deg, #4f8146 0 1.1rem, #2f5f35 1.1rem 1.3rem);
 }

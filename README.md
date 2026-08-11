@@ -118,15 +118,103 @@ Changing any stored schema requires an explicit migration and a new version stra
 - [ ] Check layouts manually at 320, 768, and 1440 px with no clipping, overlap, or horizontal scrolling.
 - [ ] Run the destructive-reset console procedure, confirm none of the three keys remains, reload, and confirm a fresh game, first adventure mission, zero stars, and no parent credential.
 
-### Current manual release receipt — 2026-08-11
+### Final post-fix release receipt — 2026-08-11
 
-- [x] After a clean `npm ci`, `npm test`, `npm run check`, `npm run build`, and `npm run coverage:parent` passed.
-- [x] At 320, 768, and 1440 px, checked all six sections and the new challenge, filters, planner, practice, named-house, and overview surfaces: no clipping, overlap, or horizontal scrolling was observed.
-- [x] Keyboard-only checks showed visible focus, and the new flow controls met the 44×44 px minimum target.
-- [x] With reduced motion enabled, animations/transitions were removed while the same progress, feedback, occupancy, summary, and completion information remained in text.
-- [x] Smoke check: installed Chrome 151.0.7922.76.
-- [x] Smoke check: installed Safari 26.5 (21624.2.5.11.4).
-- [x] Smoke check: installed Firefox 153.0.3.
+- **Executed:** clean `npm ci` and all nine prescribed commands ran on 2026-08-11 from 20:42 CEST (18:42 UTC).
+- **Production build:** `npm run build` produced `assets/index-BhN2ah8p.js`, `assets/index-C9M97U2J.css`, and `index.html`. The SHA-256 manifest digest is `10914ffd0c1e9d7e0713b4eedc82e27e29732fe7d5b61883fd4ee74d003cdc65`, calculated over each sorted `dist/` relative path, a NUL separator, its file bytes, and a trailing NUL.
+- **Automated result:** the five focused commands passed (43, 18, 40, 34, and 38 tests respectively); the full suite passed all 78 tests in eight files; TypeScript check and production build passed; parent coverage passed all 38 tests with 96.46% statements, 91.06% branches, 100% functions, and 96.46% lines. The aggregate test visited all six navigation sections, exercised each prescribed representative flow, and verified recreation/persistence boundaries. Independent malformed and unknown-version record coverage also passed.
+- **Installed-browser method/result:** final-build execution in the installed browser applications was requested, but this run's guarded environment denied read/execute access to the installed Chrome, Safari, Firefox, and Safari WebDriver paths. No installed-browser version was independently read and no final-build viewport, clipping/overlap/horizontal-scroll, keyboard-focus, 44×44-target, or reduced-motion check was executed. This is an explicit blocked release gate, not a pass.
+- [ ] Google Chrome — **final post-fix build not executed; no Chrome support claim is made**.
+- [ ] Safari — **final post-fix build not executed; no Safari support claim is made**.
+- [ ] Firefox — **final post-fix build not executed; no Firefox support claim is made**.
+- [ ] Microsoft Edge — **not executed; no Edge support claim is made**. Edge is not an implementation gate.
+
+The browser gate must be rerun at 320, 768, and 1440 CSS px in each installed Chrome, Safari, and Firefox after browser execution is authorized. Any failure must remain explicit. Until then, the historical receipt below must not be treated as evidence for the final post-fix build.
+
+### Superseded pre-fix Chrome-only receipt — 2026-08-11
+
+#### Historical fresh Chrome 44×44 target audit
+
+- **Executed:** 2026-08-11T14:50:03.503Z with installed **Google Chrome 151.0.7922.76**.
+- **Production build:** fresh `npm run build`; SHA-256 manifest digest `24e0636b496e447a1a322924dfd301ece2906584c552e0c09eaa4c78ae239e3f`, calculated over each sorted `dist/` relative path, a NUL separator, its file bytes, and a trailing NUL. Files: `assets/index-B8foKdX5.js`, `assets/index-DcjItMfX.css`, and `index.html`.
+- **Method:** the production `dist/` was served from `127.0.0.1`; installed Chrome ran with a clean profile and was driven through the Chrome DevTools Protocol. `Emulation.setDeviceMetricsOverride` set 320, 768, and 1440 CSS px at DPR 1. After each scripted state transition, the audit awaited every finite Web Animation and two animation frames, selected every visible enabled in-scope `button`, `input`, and `select`, and recorded `getBoundingClientRect()` width and height. A row fails only when width **or** height is below 44 CSS px.
+- **Coverage:** 61 distinct control/state rows at each viewport (183 measurements total): planner input/select/submit; both `data-id` answers in all three `data-round` challenge states; four shop categories, affordability, and conditional reset; both `data-answer` choices on all six ordered `data-card` practice states plus every enabled first/intermediate/final previous/next state; named-house theme, populated pet/item move/remove, and unplaced pet/item placement controls; and locked/unlocked parent PIN, unlock, lock, grant input, all three quick amounts, grant submit, approve, and return.
+- **Final undersized list:** **empty (0 of 183)**. Every dimension below is at least 44 CSS px.
+- **Layout result:** all 13 audited conditional states at each viewport had `scrollWidth === innerWidth` (320, 768, and 1440 respectively), zero horizontally clipped controls, and zero overlapping control pairs.
+- **Persistence result:** byte-for-byte values for `croatian-money-pet-game:v1`, `croatian-money-pet-game:adventure:v1`, and `croatian-money-pet-game:parent-access:v1` were identical before and after each viewport audit. The traversal used only controller-local challenge, filter, practice, navigation, and parent-unlock state.
+- **CSS decision:** `src/styles.css` is unchanged. The previous contradictory result was an immediate-render sampling fault: it measured descendants during the finite `card-arrive` animation's initial `scale(.98)` transform (for example, a declared 44 px target transiently appeared near 43.12 px). The final baseline waits for finite entrance animations to settle before measuring the interactive target, and it passes without a CSS correction.
+
+| Family / state | Control identity | 320 px (W × H) | 768 px (W × H) | 1440 px (W × H) |
+|---|---|---:|---:|---:|
+| planner / default | `#goal-target` | 253.219 × 44.000 | 663.281 × 46.500 | 1106.000 × 46.500 |
+| planner / default | `#goal-chore` | 253.219 × 44.000 | 663.281 × 44.000 | 1106.000 × 44.000 |
+| planner / default | `button[form=goal-plan;type=submit]` | 253.219 × 45.594 | 663.281 × 48.188 | 1106.000 × 48.188 |
+| earnings-challenge / round-0 | `button[data-action=answer-earnings-challenge;data-id=set-table;data-round=0]` | 253.219 × 69.594 | 325.688 × 68.000 | 547.047 × 68.000 |
+| earnings-challenge / round-0 | `button[data-action=answer-earnings-challenge;data-id=make-bed;data-round=0]` | 253.219 × 69.594 | 325.703 × 68.000 | 547.063 × 68.000 |
+| earnings-challenge / round-1 | `button[data-action=answer-earnings-challenge;data-id=help-garden;data-round=1]` | 253.219 × 69.594 | 325.688 × 68.000 | 547.047 × 68.000 |
+| earnings-challenge / round-1 | `button[data-action=answer-earnings-challenge;data-id=tidy-toys;data-round=1]` | 253.219 × 69.594 | 325.703 × 68.000 | 547.063 × 68.000 |
+| earnings-challenge / round-2 | `button[data-action=answer-earnings-challenge;data-id=sort-recycling;data-round=2]` | 253.219 × 69.594 | 325.688 × 73.688 | 547.047 × 68.000 |
+| earnings-challenge / round-2 | `button[data-action=answer-earnings-challenge;data-id=fold-laundry;data-round=2]` | 253.219 × 69.594 | 325.703 × 73.688 | 547.063 × 68.000 |
+| shop-filter / default | `button[data-action=set-shop-category;data-category=all]` | 249.219 × 53.203 | 158.438 × 73.688 | 269.125 × 56.000 |
+| shop-filter / default | `button[data-action=set-shop-category;data-category=pets]` | 249.219 × 45.594 | 158.453 × 73.688 | 269.125 × 56.000 |
+| shop-filter / default | `button[data-action=set-shop-category;data-category=pet-items]` | 249.219 × 45.594 | 158.438 × 73.688 | 269.125 × 56.000 |
+| shop-filter / default | `button[data-action=set-shop-category;data-category=house-items]` | 249.219 × 45.594 | 158.453 × 73.688 | 269.125 × 56.000 |
+| shop-filter / default | `button[data-action=toggle-shop-affordability]` | 249.219 × 45.594 | 125.016 × 48.188 | 125.016 × 48.188 |
+| shop-filter / empty | `button[data-action=reset-shop-filters]` | 111.547 × 45.594 | 118.266 × 48.188 | 118.266 × 48.188 |
+| practice / card-1-wallet | `button[data-action=answer-practice;data-card=wallet;data-answer=first]` | 217.219 × 64.000 | 306.688 × 73.688 | 528.047 × 68.000 |
+| practice / card-1-wallet | `button[data-action=answer-practice;data-card=wallet;data-answer=second]` | 217.219 × 69.594 | 306.703 × 73.688 | 528.063 × 68.000 |
+| practice-navigation / card-1-wallet | `button[data-action=next-practice]` | 123.422 × 69.594 | 328.250 × 48.188 | 549.609 × 48.188 |
+| practice / card-2-savings | `button[data-action=answer-practice;data-card=savings;data-answer=first]` | 217.219 × 69.594 | 306.688 × 73.688 | 528.047 × 68.000 |
+| practice / card-2-savings | `button[data-action=answer-practice;data-card=savings;data-answer=second]` | 217.219 × 69.594 | 306.703 × 73.688 | 528.063 × 68.000 |
+| practice-navigation / card-2-savings | `button[data-action=previous-practice]` | 123.406 × 69.594 | 328.234 × 48.188 | 549.594 × 48.188 |
+| practice-navigation / card-2-savings | `button[data-action=next-practice]` | 123.422 × 69.594 | 328.250 × 48.188 | 549.609 × 48.188 |
+| practice / card-3-earning | `button[data-action=answer-practice;data-card=earning;data-answer=first]` | 217.219 × 69.594 | 306.688 × 73.688 | 528.047 × 68.000 |
+| practice / card-3-earning | `button[data-action=answer-practice;data-card=earning;data-answer=second]` | 217.219 × 93.594 | 306.703 × 73.688 | 528.063 × 68.000 |
+| practice-navigation / card-3-earning | `button[data-action=previous-practice]` | 123.406 × 69.594 | 328.234 × 48.188 | 549.594 × 48.188 |
+| practice-navigation / card-3-earning | `button[data-action=next-practice]` | 123.422 × 69.594 | 328.250 × 48.188 | 549.609 × 48.188 |
+| practice / card-4-price | `button[data-action=answer-practice;data-card=price;data-answer=first]` | 217.219 × 64.000 | 306.688 × 68.000 | 528.047 × 68.000 |
+| practice / card-4-price | `button[data-action=answer-practice;data-card=price;data-answer=second]` | 217.219 × 69.594 | 306.703 × 68.000 | 528.063 × 68.000 |
+| practice-navigation / card-4-price | `button[data-action=previous-practice]` | 123.406 × 69.594 | 328.234 × 48.188 | 549.594 × 48.188 |
+| practice-navigation / card-4-price | `button[data-action=next-practice]` | 123.422 × 69.594 | 328.250 × 48.188 | 549.609 × 48.188 |
+| practice / card-5-loan | `button[data-action=answer-practice;data-card=loan;data-answer=first]` | 217.219 × 69.594 | 306.688 × 73.688 | 528.047 × 68.000 |
+| practice / card-5-loan | `button[data-action=answer-practice;data-card=loan;data-answer=second]` | 217.219 × 69.594 | 306.703 × 73.688 | 528.063 × 68.000 |
+| practice-navigation / card-5-loan | `button[data-action=previous-practice]` | 123.406 × 69.594 | 328.234 × 48.188 | 549.594 × 48.188 |
+| practice-navigation / card-5-loan | `button[data-action=next-practice]` | 123.422 × 69.594 | 328.250 × 48.188 | 549.609 × 48.188 |
+| practice / card-6-debt | `button[data-action=answer-practice;data-card=debt;data-answer=first]` | 217.219 × 69.594 | 306.688 × 68.000 | 528.047 × 68.000 |
+| practice / card-6-debt | `button[data-action=answer-practice;data-card=debt;data-answer=second]` | 217.219 × 64.000 | 306.703 × 68.000 | 528.063 × 68.000 |
+| practice-navigation / card-6-debt | `button[data-action=previous-practice]` | 123.406 × 69.594 | 328.234 × 48.188 | 549.594 × 48.188 |
+| named-house / theme | `#theme` | 253.219 × 44.000 | 250.438 × 44.000 | 471.797 × 44.000 |
+| named-house / theme | `button[form=theme;type=submit]` | 253.219 × 45.594 | 142.031 × 48.188 | 142.031 × 48.188 |
+| named-house / populated-pet-slot | `#move-pet-1` | 213.219 × 44.000 | 152.594 × 44.000 | 297.734 × 44.000 |
+| named-house / populated-pet-slot | `button[data-action=move-pet;data-slot=pet-1]` | 213.219 × 45.594 | 152.594 × 48.188 | 145.469 × 48.188 |
+| named-house / populated-pet-slot | `button[data-action=remove-pet;data-slot=pet-1]` | 213.219 × 45.594 | 152.594 × 48.188 | 145.469 × 48.188 |
+| named-house / populated-item-slot | `#move-item-1` | 213.219 × 44.000 | 183.156 × 44.000 | 350.094 × 44.000 |
+| named-house / populated-item-slot | `button[data-action=move-item;data-slot=item-1]` | 213.219 × 45.594 | 183.156 × 48.188 | 171.641 × 48.188 |
+| named-house / populated-item-slot | `button[data-action=remove-item;data-slot=item-1]` | 213.219 × 45.594 | 183.156 × 48.188 | 171.656 × 48.188 |
+| named-house / unplaced-pet | `#pet-slot-3` | 253.219 × 44.000 | 276.766 × 44.000 | 498.125 × 44.000 |
+| named-house / unplaced-pet | `button[form=place-pet;form-id=3;type=submit]` | 253.219 × 45.594 | 89.375 × 48.188 | 89.375 × 48.188 |
+| named-house / unplaced-item | `#item-slot-bowl` | 253.219 × 44.000 | 276.766 × 44.000 | 498.125 × 44.000 |
+| named-house / unplaced-item | `button[form=place-item;form-id=bowl;type=submit]` | 253.219 × 45.594 | 89.375 × 48.188 | 89.375 × 48.188 |
+| named-house / unplaced-item | `#item-slot-toy` | 253.219 × 44.000 | 276.766 × 44.000 | 498.125 × 44.000 |
+| named-house / unplaced-item | `button[form=place-item;form-id=toy;type=submit]` | 253.219 × 45.594 | 89.375 × 48.188 | 89.375 × 48.188 |
+| parent / locked | `#parent-pin` | 247.219 × 44.000 | 606.000 × 46.500 | 606.000 × 46.500 |
+| parent / locked | `button[form=parent-unlock;type=submit]` | 247.219 × 45.594 | 606.000 × 48.188 | 606.000 × 48.188 |
+| parent / unlocked-lock | `button[data-action=lock-parent]` | 100.063 × 45.594 | 106.047 × 48.188 | 106.047 × 48.188 |
+| parent / unlocked-grant | `#amount-grant` | 247.219 × 44.000 | 657.281 × 46.500 | 1100.000 × 46.500 |
+| parent / unlocked-grant | `button[data-quick=5]` | 78.141 × 69.594 | 214.563 × 48.188 | 362.125 × 48.188 |
+| parent / unlocked-grant | `button[data-quick=10]` | 78.156 × 69.594 | 214.563 × 48.188 | 362.141 × 48.188 |
+| parent / unlocked-grant | `button[data-quick=20]` | 78.141 × 69.594 | 214.563 × 48.188 | 362.141 × 48.188 |
+| parent / unlocked-grant | `button[form=grant;type=submit]` | 247.219 × 45.594 | 657.281 × 48.188 | 1100.000 × 48.188 |
+| parent / unlocked-request | `button[data-action=approve-chore;data-id=1]` | 209.219 × 45.594 | 89.594 × 48.188 | 89.594 × 48.188 |
+| parent / unlocked-request | `button[data-action=return-chore;data-id=1]` | 209.219 × 45.594 | 154.734 × 48.188 | 154.734 × 48.188 |
+
+#### Scope of the superseded receipt
+
+- [x] The required focused and full automated commands listed above passed after the final unchanged CSS state.
+- [x] The fresh Chrome audit found no clipping, overlap, or horizontal scrolling at 320, 768, and 1440 px.
+- [x] Existing keyboard-focus styling and reduced-motion behavior remain unchanged; no CSS rule was edited by this reconciliation.
+- [ ] Safari 26.5 (21624.2.5.11.4) — the prior installed-version smoke receipt was not rerun for this target audit; no fresh 44×44 result is claimed for Safari.
+- [ ] Firefox 153.0.3 — the prior installed-version smoke receipt was not rerun for this target audit; no fresh 44×44 result is claimed for Firefox.
 - [ ] Microsoft Edge — **not executed; no Edge support claim is made**. Edge is not installed and is not an implementation gate.
 
 This receipt covers engineering behavior and release presentation only. No child playtest threshold was supplied, so it does not claim product validation or a measured learning outcome.

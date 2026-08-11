@@ -75,6 +75,54 @@ function expectParentProtectedContentAbsent(): void {
   expect(root.querySelector('[data-action="return-chore"]')).toBeNull();
 }
 
+function expectParentProtectedContentPresent(): void {
+  expect(root.querySelector("[data-parent-overview]")).not.toBeNull();
+  expect(root.querySelector("[data-parent-recent]")).not.toBeNull();
+  expect(root.querySelector('[data-form="grant"]')).not.toBeNull();
+  expect(root.querySelector('[data-action="approve-chore"]')).not.toBeNull();
+  expect(root.querySelector('[data-action="return-chore"]')).not.toBeNull();
+}
+
+interface DeferredDerivation {
+  resolve(value: ArrayBuffer): void;
+}
+
+class DeferredCrypto {
+  readonly crypto: Crypto;
+  calls = 0;
+  private readonly requests: DeferredDerivation[] = [];
+  private readonly waiters: Array<() => void> = [];
+
+  constructor() {
+    const deriveBits = (): Promise<ArrayBuffer> => {
+      this.calls += 1;
+      return new Promise<ArrayBuffer>((resolve) => {
+        this.requests.push({ resolve });
+        this.waiters.shift()?.();
+      });
+    };
+    this.crypto = {
+      getRandomValues: webcrypto.getRandomValues.bind(webcrypto),
+      subtle: { importKey: async () => ({} as CryptoKey), deriveBits },
+    } as unknown as Crypto;
+  }
+
+  async next(): Promise<DeferredDerivation> {
+    if (this.requests.length === 0) await new Promise<void>((resolve) => this.waiters.push(resolve));
+    return this.requests.shift()!;
+  }
+}
+
+function parentVerifierBytes(source: MemoryStorage): Uint8Array {
+  const verifier = JSON.parse(source.getItem(PARENT_ACCESS_KEY)!).verifier as string;
+  return Uint8Array.from(atob(verifier), (character) => character.charCodeAt(0));
+}
+
+async function settleDerivation(request: DeferredDerivation, bytes: Uint8Array): Promise<void> {
+  request.resolve(bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer);
+  for (let turn = 0; turn < 4; turn += 1) await Promise.resolve();
+}
+
 describe("integrated Croatian application", () => {
   it("completes and restores the planned journey through the real UI", async () => {
     await provisionParentAccess();
@@ -730,6 +778,7 @@ describe("integrated Croatian application", () => {
       correctExplanation: card.correctExplanation,
       wrongExplanation: card.wrongExplanation,
     })));
+    expect(root.querySelector('.practice-deck [role="group"]')?.getAttribute("aria-label")).toBe(HR.practiceNavigationLabel);
     expect(ADVENTURE_PRACTICE.map(({ correctExplanation }) => correctExplanation)).toEqual([
       expect.stringContaining("naplaćuje zlatnike iz novčanika"),
       expect.stringContaining("vratiti u novčanik"),
@@ -1098,7 +1147,7 @@ describe("integrated Croatian application", () => {
       ...initialState(),
       wallet: 44,
       savings: 12,
-      debt: 3,
+      debt: 1,
       choreRequests: [
         { id: 1, choreId: "make-bed", status: "pending" as const },
         { id: 2, choreId: "tidy-toys", status: "approved" as const },
@@ -1149,18 +1198,18 @@ describe("integrated Croatian application", () => {
       HR.parentItemsSummary,
     ]);
     expect([...overview.querySelectorAll("[data-parent-summary-value]")].map(({ textContent }) => textContent)).toEqual([
-      "44 zlatnika", "12 zlatnika", "3 zlatnika", "1", "2 od 4", "2 od 8", "5",
+      "44 zlatnika", "12 zlatnika", "1 zlatnik", "1", "2 od 4", "2 od 8", "5",
     ]);
     const recent = [...overview.querySelectorAll<HTMLLIElement>("[data-parent-recent] li")].map(({ textContent }) => textContent);
     expect(recent).toEqual([
       "Kupljena je stvar Zdjelica za 10 zlatnika.",
       "Kupljen je ljubimac Ribica za 30 zlatnika.",
       "Roditelj je dodao 5 zlatnika.",
-      "Vraćeno je 1 zlatnika duga.",
+      "Vraćen je 1 zlatnik duga.",
       "Posuđeno je 3 zlatnika u igri.",
     ]);
     expect(recent).toHaveLength(5);
-    expect(overview.textContent).not.toContain("Iz kasice je uzeto 1 zlatnika.");
+    expect(overview.textContent).not.toContain("Iz kasice je uzet 1 zlatnik.");
     expect(overview.querySelectorAll("button, form, input, select")).toHaveLength(0);
 
     const playerChannels = [overview.textContent ?? "", ...[...overview.querySelectorAll<HTMLElement>("[aria-label], [aria-valuetext], [placeholder]")].flatMap((element) =>
@@ -1227,6 +1276,163 @@ describe("integrated Croatian application", () => {
     ]);
     expect(JSON.parse(storage.getItem(STORAGE_KEY)!)).toEqual(app.getState());
     expect(JSON.parse(storage.getItem(ADVENTURE_STORAGE_KEY)!)).toEqual(app.getAdventureState());
+  });
+
+  it("keeps only the newest overlapping parent unlock authoritative and ignores repeated pending submission", async () => {
+    await provisionParentAccess();
+    const game = {
+      ...initialState(),
+      wallet: 27,
+      choreRequests: [{ id: 1, choreId: "make-bed", status: "pending" as const }],
+      nextId: 2,
+      activities: [{ code: "coins-granted" as const, amount: 27 }],
+    };
+    const adventure = initialAdventureState();
+    storage.setItem(STORAGE_KEY, JSON.stringify(game));
+    storage.setItem(ADVENTURE_STORAGE_KEY, JSON.stringify(adventure));
+    const verifier = parentVerifierBytes(storage);
+    const deferred = new DeferredCrypto();
+    const app = createApp(root, storage, deferred.crypto, true);
+
+    click('[data-nav="parent"]');
+    expectParentProtectedContentAbsent();
+    const oldForm = root.querySelector<HTMLFormElement>('[data-form="parent-unlock"]')!;
+    (oldForm.elements.namedItem("pin") as HTMLInputElement).value = "246810";
+    oldForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    oldForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const oldRequest = await deferred.next();
+    expect(deferred.calls).toBe(1);
+    expectParentProtectedContentAbsent();
+
+    click('[data-nav="money"]');
+    click('[data-nav="parent"]');
+    expectParentProtectedContentAbsent();
+    const newForm = root.querySelector<HTMLFormElement>('[data-form="parent-unlock"]')!;
+    expect(newForm).not.toBe(oldForm);
+    (newForm.elements.namedItem("pin") as HTMLInputElement).value = "246810";
+    newForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const newRequest = await deferred.next();
+    expect(deferred.calls).toBe(2);
+
+    await settleDerivation(newRequest, verifier);
+    expectParentProtectedContentPresent();
+    expect([...root.querySelectorAll("[data-parent-summary-value]")].map(({ textContent }) => textContent)).toEqual([
+      "27 zlatnika", "0 zlatnika", "0 zlatnika", "1", "0 od 4", "0 od 8", "0",
+    ]);
+    const stateBeforeStale = structuredClone(app.getState());
+    const adventureBeforeStale = structuredClone(app.getAdventureState());
+    const domBeforeStale = root.innerHTML;
+    const recordsBeforeStale = [STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key));
+
+    await settleDerivation(oldRequest, verifier);
+    expect(app.getState()).toEqual(stateBeforeStale);
+    expect(app.getAdventureState()).toEqual(adventureBeforeStale);
+    expect(root.innerHTML).toBe(domBeforeStale);
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(recordsBeforeStale);
+    expectParentProtectedContentPresent();
+
+    submit('[data-form="grant"]', 3);
+    expect(app.getState().wallet).toBe(30);
+    expect(root.querySelector("[data-parent-summary-value]")?.textContent).toBe("30 zlatnika");
+  });
+
+  it("keeps a newer failed unlock closed when an older successful verification settles later", async () => {
+    await provisionParentAccess();
+    const game = {
+      ...initialState(),
+      wallet: 41,
+      choreRequests: [{ id: 1, choreId: "make-bed", status: "pending" as const }],
+      nextId: 2,
+    };
+    const adventure = initialAdventureState();
+    storage.setItem(STORAGE_KEY, JSON.stringify(game));
+    storage.setItem(ADVENTURE_STORAGE_KEY, JSON.stringify(adventure));
+    const verifier = parentVerifierBytes(storage);
+    const wrongVerifier = verifier.slice();
+    wrongVerifier[0] ^= 0xff;
+    const deferred = new DeferredCrypto();
+    const app = createApp(root, storage, deferred.crypto, true);
+
+    click('[data-nav="parent"]');
+    const oldForm = root.querySelector<HTMLFormElement>('[data-form="parent-unlock"]')!;
+    (oldForm.elements.namedItem("pin") as HTMLInputElement).value = "246810";
+    oldForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const oldRequest = await deferred.next();
+    click('[data-nav="shop"]');
+    click('[data-nav="parent"]');
+    const newForm = root.querySelector<HTMLFormElement>('[data-form="parent-unlock"]')!;
+    (newForm.elements.namedItem("pin") as HTMLInputElement).value = "111111";
+    newForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const newRequest = await deferred.next();
+
+    await settleDerivation(newRequest, wrongVerifier);
+    expect(root.querySelector("#feedback")?.textContent).toContain(PARENT_ACCESS_MESSAGES["wrong-pin"]);
+    expectParentProtectedContentAbsent();
+    expect(root.textContent).not.toContain("41 zlatnika");
+    const stateBeforeStale = structuredClone(app.getState());
+    const adventureBeforeStale = structuredClone(app.getAdventureState());
+    const domBeforeStale = root.innerHTML;
+    const recordsBeforeStale = [STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key));
+
+    await settleDerivation(oldRequest, verifier);
+    expect(app.getState()).toEqual(stateBeforeStale);
+    expect(app.getAdventureState()).toEqual(adventureBeforeStale);
+    expect(root.innerHTML).toBe(domBeforeStale);
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(recordsBeforeStale);
+    expectParentProtectedContentAbsent();
+
+    const forged = [
+      '<form data-form="grant"><input name="amount" value="50"></form>',
+      '<button data-action="approve-chore" data-id="1"></button>',
+      '<button data-action="return-chore" data-id="1"></button>',
+    ];
+    for (const markup of forged) {
+      root.insertAdjacentHTML("beforeend", markup);
+      const injected = root.lastElementChild!;
+      injected.dispatchEvent(new Event(injected.tagName === "FORM" ? "submit" : "click", { bubbles: true, cancelable: true }));
+      expect(app.getState()).toEqual(stateBeforeStale);
+      expect(app.getAdventureState()).toEqual(adventureBeforeStale);
+      expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(recordsBeforeStale);
+      expectParentProtectedContentAbsent();
+    }
+  });
+
+  it("invalidates pending parent unlocks on explicit lock and controller destruction", async () => {
+    await provisionParentAccess();
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...initialState(), wallet: 19 }));
+    storage.setItem(ADVENTURE_STORAGE_KEY, JSON.stringify(initialAdventureState()));
+    const verifier = parentVerifierBytes(storage);
+    const deferred = new DeferredCrypto();
+    const app = createApp(root, storage, deferred.crypto, true);
+
+    click('[data-nav="parent"]');
+    const lockInvalidatedForm = root.querySelector<HTMLFormElement>('[data-form="parent-unlock"]')!;
+    (lockInvalidatedForm.elements.namedItem("pin") as HTMLInputElement).value = "246810";
+    lockInvalidatedForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const lockInvalidatedRequest = await deferred.next();
+    root.insertAdjacentHTML("beforeend", '<button data-action="lock-parent"></button>');
+    (root.lastElementChild as HTMLButtonElement).click();
+    expectParentProtectedContentAbsent();
+    const lockedDom = root.innerHTML;
+    const lockedRecords = [STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key));
+    await settleDerivation(lockInvalidatedRequest, verifier);
+    expect(root.innerHTML).toBe(lockedDom);
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(lockedRecords);
+    expectParentProtectedContentAbsent();
+
+    const destroyedForm = root.querySelector<HTMLFormElement>('[data-form="parent-unlock"]')!;
+    (destroyedForm.elements.namedItem("pin") as HTMLInputElement).value = "246810";
+    destroyedForm.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    const destroyedRequest = await deferred.next();
+    const stateBeforeDestroy = structuredClone(app.getState());
+    const adventureBeforeDestroy = structuredClone(app.getAdventureState());
+    app.destroy();
+    expect(root.innerHTML).toBe("");
+    await settleDerivation(destroyedRequest, verifier);
+    expect(root.innerHTML).toBe("");
+    expect(app.getState()).toEqual(stateBeforeDestroy);
+    expect(app.getAdventureState()).toEqual(adventureBeforeDestroy);
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(lockedRecords);
   });
 
   it("keeps every overview and protected control absent across all closed parent modes and transitions", async () => {

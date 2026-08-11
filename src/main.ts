@@ -84,7 +84,7 @@ function renderPractice(cardIndex: number, practiceFeedback: string, correctCard
       <p id="practice-card-status">${escapeHtml(completed ? HR.practiceCompleted : HR.practicePending)}</p>
       <p data-practice-feedback role="status" aria-live="polite" aria-atomic="true">${escapeHtml(practiceFeedback)}</p>
     </article>
-    <div class="slot-actions" role="group" aria-label="${escapeHtml(HR.practiceCardLabel)}">
+    <div class="slot-actions" role="group" aria-label="${escapeHtml(HR.practiceNavigationLabel)}">
       <button type="button" data-action="previous-practice" ${cardIndex === 0 ? "disabled" : ""}>${escapeHtml(HR.practicePrevious)}</button>
       <button type="button" data-action="next-practice" ${cardIndex === ADVENTURE_PRACTICE.length - 1 ? "disabled" : ""}>${escapeHtml(HR.practiceNext)}</button>
     </div>
@@ -368,9 +368,9 @@ function renderParentOverview(state: AppStateV1, adventure: AdventureStateV1): s
   const pendingChores = state.choreRequests.filter(({ status }) => status === "pending").length;
   const itemQuantity = Object.values(state.itemQuantities).reduce((total, quantity) => total + quantity, 0);
   const summaries = [
-    [HR.parentWalletSummary, HR.balanceValue(state.wallet)],
-    [HR.parentSavingsSummary, HR.balanceValue(state.savings)],
-    [HR.parentDebtSummary, HR.balanceValue(state.debt)],
+    [HR.parentWalletSummary, HR.coinValue(state.wallet)],
+    [HR.parentSavingsSummary, HR.coinValue(state.savings)],
+    [HR.parentDebtSummary, HR.coinValue(state.debt)],
     [HR.parentPendingSummary, HR.parentCountValue(pendingChores)],
     [HR.parentMissionsSummary, HR.parentMissionsValue(adventure.completedMissions.length)],
     [HR.parentPetsSummary, HR.parentPetsValue(state.ownedPets.length)],
@@ -419,6 +419,7 @@ export function createApp(
   let parentMode: ParentMode = !cryptoAvailable ? "unavailable" : access.code === "setup-required" ? "unprovisioned" : access.code === "credential-present" ? "locked" : "unavailable";
   let parentUnlocked = false;
   let accessAttempt = 0;
+  let pendingParentUnlock: { attempt: number; form: HTMLFormElement } | null = null;
   let earningsChallengeRound = 0;
   let earningsChallengeFeedback = "";
   let goalPlan: GoalPlanResult | null = null;
@@ -431,7 +432,14 @@ export function createApp(
   let feedback = loaded.code && loaded.code !== "load-empty" ? LOAD_MESSAGES[loaded.code] : adventureLoadFeedback || (loaded.code ? LOAD_MESSAGES[loaded.code] : "");
   let reaction: "correct" | "step" | "star" | "complete" | "" = "";
 
+  function invalidateParentUnlock(): void {
+    if (!pendingParentUnlock) return;
+    accessAttempt += 1;
+    pendingParentUnlock = null;
+  }
+
   function render(): void {
+    invalidateParentUnlock();
     const sections: Record<View, string> = { adventure: renderAdventure(adventure, practiceCardIndex, practiceFeedback, correctPracticeCards), money: renderMoney(state, adventure, goalPlan), chores: renderChores(state, adventure, earningsChallengeRound, earningsChallengeFeedback), shop: renderShop(state, adventure, shopCategory, shopAffordableOnly), house: renderHouse(state, adventure), parent: renderParent(state, adventure, parentMode) };
     root.innerHTML = `<a class="skip-link" href="#main-content">${escapeHtml(HR.skipLink)}</a><header class="app-header"><div><span class="logo" aria-hidden="true">🐾</span><strong>${escapeHtml(HR.appName)}</strong><p>${escapeHtml(HR.welcome)}</p></div><p class="fictional-notice">${escapeHtml(HR.fictionalNotice)}</p></header>
       <nav aria-label="${escapeHtml(HR.navigationLabel)}">${views.map((view) => `<button data-nav="${view.id}" ${view.id === activeView ? `class="active" aria-current="page"` : ""}><span>${escapeHtml(view.label)}</span>${view.id === activeView ? `<span class="sr-only">${escapeHtml(HR.currentView)}</span>` : ""}</button>`).join("")}</nav>
@@ -491,8 +499,8 @@ export function createApp(
     if (!target) return;
     if (target.dataset.nav) {
       const nextView = target.dataset.nav as View;
+      invalidateParentUnlock();
       if (activeView === "parent" && nextView !== "parent") {
-        accessAttempt += 1;
         parentUnlocked = false;
         const currentAccess = inspectParentAccess(storage);
         parentMode = !cryptoAvailable ? "unavailable" : currentAccess.code === "setup-required" ? "unprovisioned" : currentAccess.code === "credential-present" ? "locked" : "unavailable";
@@ -565,7 +573,7 @@ export function createApp(
       shopAffordableOnly = false;
       render(); return;
     }
-    if (action === "lock-parent") { accessAttempt += 1; parentUnlocked = false; parentMode = "locked"; feedback = HR.parentLocked; reaction = ""; render(); return; }
+    if (action === "lock-parent") { invalidateParentUnlock(); parentUnlocked = false; parentMode = "locked"; feedback = HR.parentLocked; reaction = ""; render(); return; }
     if ((action === "approve-chore" || action === "return-chore") && !parentUnlocked) { feedback = HR.parentDenied; render(); return; }
     if (action === "request-chore" && id) commit(requestChore(state, id));
     else if (action === "approve-chore" && id) commit(approveChore(state, Number(id)));
@@ -586,15 +594,19 @@ export function createApp(
     event.preventDefault();
     const action = form.dataset.form;
     if (action === "parent-unlock") {
+      if (pendingParentUnlock?.form === form) return;
+      if (activeView !== "parent" || parentMode !== "locked" || root.querySelector('[data-form="parent-unlock"]') !== form) return;
       if (!cryptoAvailable) { parentUnlocked = false; parentMode = "unavailable"; feedback = PARENT_ACCESS_MESSAGES["crypto-unavailable"]; render(); return; }
       const attempt = ++accessAttempt;
+      pendingParentUnlock = { attempt, form };
       const pin = (form.elements.namedItem("pin") as HTMLInputElement | null)?.value ?? "";
       const result = await unlockParentAccess(storage, crypto ?? undefined, pin);
-      if (attempt !== accessAttempt || activeView !== "parent") {
-        parentUnlocked = false;
-        if (result.unlocked) parentMode = "locked";
-        return;
-      }
+      if (
+        pendingParentUnlock?.attempt !== attempt || pendingParentUnlock.form !== form ||
+        attempt !== accessAttempt || activeView !== "parent" || parentMode !== "locked" ||
+        root.querySelector('[data-form="parent-unlock"]') !== form
+      ) return;
+      pendingParentUnlock = null;
       parentUnlocked = result.unlocked;
       if (result.unlocked) parentMode = "unlocked";
       else if (result.code === "setup-required") parentMode = "unprovisioned";
@@ -648,7 +660,7 @@ export function createApp(
   root.addEventListener("click", clickHandler);
   root.addEventListener("submit", submitHandler);
   render();
-  return { getState: () => state, getAdventureState: () => adventure, destroy: () => { accessAttempt += 1; parentUnlocked = false; root.removeEventListener("click", clickHandler); root.removeEventListener("submit", submitHandler); root.replaceChildren(); } };
+  return { getState: () => state, getAdventureState: () => adventure, destroy: () => { invalidateParentUnlock(); parentUnlocked = false; root.removeEventListener("click", clickHandler); root.removeEventListener("submit", submitHandler); root.replaceChildren(); } };
 }
 
 const root = document.querySelector<HTMLElement>("#app");
