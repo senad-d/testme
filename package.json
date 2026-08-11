@@ -1,0 +1,20 @@
+{
+  "name": "moja-trgovina-ljubimaca",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "test": "vitest run",
+    "coverage:parent": "vitest run src/app.test.ts src/game/parent-access.test.ts --coverage --coverage.include=src/main.ts --coverage.include=src/game/parent-access.ts",
+    "check": "tsc --noEmit --skipLibCheck --target ES2022 --module ESNext --moduleResolution bundler --lib ESNext,DOM src/main.ts src/game/adventure.ts src/content/hr.ts src/game/chores.ts src/game/house.ts src/game/money.ts src/game/shop.ts src/game/store.ts src/game/parent-access.ts"
+  },
+  "devDependencies": {
+    "@vitest/coverage-v8": "2.1.8",
+    "jsdom": "25.0.1",
+    "typescript": "5.7.2",
+    "vite": "6.0.3",
+    "vitest": "2.1.8"
+  }
+}
