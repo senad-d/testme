@@ -3,6 +3,7 @@
 - [Product requirements](prd/prd-igra-financijske-vjestine.md)
 - [Specifications](specs/)
 - [Tasks](tasks/)
+- [UI/UX design review](design/review-the-current-application-ui-and-ux-and-pro-task-28cfed35ce5d-ui-ux.md)
 
 ## Specifications
 
