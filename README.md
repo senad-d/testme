@@ -39,6 +39,10 @@ npm run coverage:parent
 
 The build command creates a static `dist/` directory. Production hosting must serve `dist/` over HTTPS in a secure browser context because parent PIN unlock depends on Web Crypto. `localhost` is a development-only secure-context exception. In an insecure or Web-Crypto-unavailable context, the Croatian fail-closed unavailable state is shown and all parent controls remain inaccessible. The application does not require server-side routing.
 
+## Player navigation
+
+The primary child navigation contains five Croatian destinations: **Pustolovina**, **Moj novac**, **Poslovi**, **Trgovina**, and **Moja kuća**. **Kutak za roditelje** is a separate parent utility, not a child-navigation destination. The header identifies the game boundary with: **Ovo je igra s izmišljenim zlatnicima — bez pravog novca.**
+
 ## Maintaining content and rules
 
 Frequently changed values and all Croatian display copy live in `src/content/hr.ts`. The final closed catalogs are:

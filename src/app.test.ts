@@ -1654,6 +1654,48 @@ describe("integrated Croatian application", () => {
     expect(adventureMessageForCode("unexpected-english-error")).toBe(HR.genericError);
   });
 
+  it("renders five Croatian child destinations separately from the parent utility", () => {
+    createApp(root, storage);
+    const childNavigation = root.querySelector<HTMLElement>("nav.child-navigation");
+    expect(childNavigation).not.toBeNull();
+    expect(childNavigation?.getAttribute("aria-label")).toBe(HR.navigationLabel);
+    const expectedChildren = [
+      ["adventure", "🗺️", HR.navAdventure],
+      ["money", "🐷", HR.navMoney],
+      ["chores", "🌻", HR.navChores],
+      ["shop", "🎪", HR.navShop],
+      ["house", "🏡", HR.navHouse],
+    ] as const;
+    const childButtons = [...childNavigation!.querySelectorAll<HTMLButtonElement>("button[data-nav]")];
+    expect(childButtons).toHaveLength(5);
+    expect(childButtons.map(({ dataset }) => dataset.nav)).toEqual(expectedChildren.map(([id]) => id));
+    expectedChildren.forEach(([id, icon, label], index) => {
+      const button = childButtons[index];
+      expect(button.querySelector(".nav-icon")?.textContent).toBe(icon);
+      expect(button.querySelector(".nav-icon")?.getAttribute("aria-hidden")).toBe("true");
+      expect(button.querySelector("span:not(.nav-icon):not(.sr-only)")?.textContent).toBe(label);
+    });
+    expect(childButtons[0].classList.contains("active")).toBe(true);
+    expect(childButtons[0].getAttribute("aria-current")).toBe("page");
+    expect(childButtons[0].querySelector(".sr-only")?.textContent).toBe(HR.currentView);
+    expect(childNavigation?.querySelector('[data-nav="parent"]')).toBeNull();
+
+    const parentUtility = root.querySelector<HTMLElement>(".parent-utility");
+    const parentButton = parentUtility?.querySelector<HTMLButtonElement>('[data-nav="parent"]');
+    expect(parentUtility?.getAttribute("aria-label")).toBe(HR.parentUtilityLabel);
+    expect(parentButton?.closest("nav")).toBeNull();
+    expect(parentButton?.querySelector(".nav-icon")?.getAttribute("aria-hidden")).toBe("true");
+    expect(parentButton?.textContent).toContain(HR.navParent);
+    expect(root.querySelector(".fictional-notice")?.textContent).toBe("Ovo je igra s izmišljenim zlatnicima — bez pravog novca.");
+
+    click('[data-nav="money"]');
+    expect(root.querySelector('[data-nav="money"]')?.getAttribute("aria-current")).toBe("page");
+    expect(root.querySelector('[data-nav="adventure"]')?.getAttribute("aria-current")).toBeNull();
+    click('[data-nav="parent"]');
+    expect(root.querySelector('[data-nav="parent"]')?.getAttribute("aria-current")).toBe("page");
+    expect(childNavigation?.querySelectorAll("button.active")).toHaveLength(0);
+  });
+
   it("accounts for visual and accessibility channels in all six views", () => {
     createApp(root, storage);
     const inventory = [

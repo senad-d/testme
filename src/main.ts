@@ -11,13 +11,12 @@ import { ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, ANSWER_IDS, BADGE_IDS, GL
 export { ACTIVITY_CODES, LOAD_CODES, RESULT_CODES, ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, MISSION_IDS, ANSWER_IDS, BADGE_IDS, GLOSSARY_IDS, activityMessage, adventureMessageForCode, messageForCode };
 
 type View = "adventure" | "money" | "chores" | "shop" | "house" | "parent";
-const views: Array<{ id: View; label: string }> = [
-  { id: "adventure", label: HR.navAdventure },
-  { id: "money", label: HR.navMoney },
-  { id: "chores", label: HR.navChores },
-  { id: "shop", label: HR.navShop },
-  { id: "house", label: HR.navHouse },
-  { id: "parent", label: HR.navParent },
+const childViews: Array<{ id: Exclude<View, "parent">; label: string; icon: string }> = [
+  { id: "adventure", label: HR.navAdventure, icon: "🗺️" },
+  { id: "money", label: HR.navMoney, icon: "🐷" },
+  { id: "chores", label: HR.navChores, icon: "🌻" },
+  { id: "shop", label: HR.navShop, icon: "🎪" },
+  { id: "house", label: HR.navHouse, icon: "🏡" },
 ];
 
 function escapeHtml(value: string | number): string {
@@ -441,8 +440,10 @@ export function createApp(
   function render(): void {
     invalidateParentUnlock();
     const sections: Record<View, string> = { adventure: renderAdventure(adventure, practiceCardIndex, practiceFeedback, correctPracticeCards), money: renderMoney(state, adventure, goalPlan), chores: renderChores(state, adventure, earningsChallengeRound, earningsChallengeFeedback), shop: renderShop(state, adventure, shopCategory, shopAffordableOnly), house: renderHouse(state, adventure), parent: renderParent(state, adventure, parentMode) };
+    const childNavigation = childViews.map((view) => `<button data-nav="${view.id}" ${view.id === activeView ? `class="active" aria-current="page"` : ""}><span class="nav-icon" aria-hidden="true">${view.icon}</span><span>${escapeHtml(view.label)}</span>${view.id === activeView ? `<span class="sr-only">${escapeHtml(HR.currentView)}</span>` : ""}</button>`).join("");
+    const parentUtility = `<aside class="parent-utility" aria-label="${escapeHtml(HR.parentUtilityLabel)}"><button data-nav="parent" ${activeView === "parent" ? `class="active" aria-current="page"` : ""}><span class="nav-icon" aria-hidden="true">🔐</span><span>${escapeHtml(HR.navParent)}</span>${activeView === "parent" ? `<span class="sr-only">${escapeHtml(HR.currentView)}</span>` : ""}</button></aside>`;
     root.innerHTML = `<a class="skip-link" href="#main-content">${escapeHtml(HR.skipLink)}</a><header class="app-header"><div><span class="logo" aria-hidden="true">🐾</span><strong>${escapeHtml(HR.appName)}</strong><p>${escapeHtml(HR.welcome)}</p></div><p class="fictional-notice">${escapeHtml(HR.fictionalNotice)}</p></header>
-      <nav aria-label="${escapeHtml(HR.navigationLabel)}">${views.map((view) => `<button data-nav="${view.id}" ${view.id === activeView ? `class="active" aria-current="page"` : ""}><span>${escapeHtml(view.label)}</span>${view.id === activeView ? `<span class="sr-only">${escapeHtml(HR.currentView)}</span>` : ""}</button>`).join("")}</nav>
+      <div class="app-navigation"><nav class="child-navigation" aria-label="${escapeHtml(HR.navigationLabel)}">${childNavigation}</nav></div>${parentUtility}
       <div id="feedback" class="feedback${feedback ? " has-feedback" : ""}${reaction ? ` reaction-${reaction}` : ""}" role="status" aria-live="polite" aria-label="${escapeHtml(HR.feedbackLabel)}">${feedback ? `<span aria-hidden="true">🎉</span> ` : ""}${escapeHtml(feedback)}</div>
       <main id="main-content" tabindex="-1">${sections[activeView]}</main>`;
   }
