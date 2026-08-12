@@ -110,7 +110,7 @@ describe("house customization", () => {
       fullState = placeAsset(fullState, { kind: "pet", id: index + 1 }, slot).state;
     });
     expect(Object.values(fullState.petPlacements).filter((id) => id !== null)).toHaveLength(4);
-    expect(fullState.ownedPets.filter(({ id }) => !Object.values(fullState.petPlacements).includes(id))).toHaveLength(4);
+    expect(fullState.ownedPets.filter(({ id }) => !Object.values(fullState.petPlacements).includes(id))).toHaveLength(PETS.length - 4);
     expect(isValidState(fullState)).toBe(true);
     const fullResult = placeAsset(fullState, { kind: "pet", id: 5 }, "pet-1");
     expect(fullResult.code).toBe("house-slot-occupied");

@@ -20,7 +20,11 @@ export const CHORES = [
   { id: "sweep-kitchen", name: "Pometi kuhinju", reward: 9 },
   { id: "help-garden", name: "Pomozi u vrtu", reward: 11 },
   { id: "sort-recycling", name: "Razvrstaj otpad", reward: 14 },
-] as const satisfies ReadonlyArray<{ id: string; name: string; reward: number }>;
+  { id: "wipe-table", name: "Obriši stol", reward: 6 },
+  { id: "organize-books", name: "Složi knjige", reward: 7 },
+  { id: "dust-shelves", name: "Obriši prašinu s polica", reward: 8 },
+  { id: "collect-mail", name: "Donesi poštu", reward: 5 },
+] as const satisfies ReadonlyArray<{ id: string; name: string; reward: number }>; 
 
 type ChoreId = (typeof CHORES)[number]["id"];
 
@@ -42,7 +46,11 @@ export const PETS = [
   { id: "goat", name: "Koza", price: 70, emoji: "🐐" },
   { id: "horse", name: "Konj", price: 100, emoji: "🐴" },
   { id: "cow", name: "Krava", price: 110, emoji: "🐄" },
-] as const satisfies ReadonlyArray<{ id: string; name: string; price: number; emoji: string }>;
+  { id: "hamster", name: "Hrčak", price: 45, emoji: "🐹" },
+  { id: "turtle", name: "Kornjača", price: 55, emoji: "🐢" },
+  { id: "hedgehog", name: "Ježić", price: 65, emoji: "🦔" },
+  { id: "alpaca", name: "Alpaka", price: 90, emoji: "🦙" },
+] as const satisfies ReadonlyArray<{ id: string; name: string; price: number; emoji: string }>; 
 
 export const ITEMS = [
   { id: "bowl", name: "Zdjelica", price: 10, emoji: "🥣", category: "pet" },
@@ -55,12 +63,19 @@ export const ITEMS = [
   { id: "pet-brush", name: "Četka za ljubimce", price: 14, emoji: "🪮", category: "pet" },
   { id: "lamp", name: "Svjetiljka", price: 16, emoji: "🏮", category: "house" },
   { id: "bookshelf", name: "Polica za knjige", price: 24, emoji: "📚", category: "house" },
+  { id: "water-bottle", name: "Bočica za vodu", price: 12, emoji: "🍼", category: "pet", careAssociation: "feed" },
+  { id: "play-ball", name: "Loptica za igru", price: 13, emoji: "⚽", category: "pet", careAssociation: "play" },
+  { id: "grooming-glove", name: "Rukavica za četkanje", price: 15, emoji: "🧤", category: "pet", careAssociation: "groom" },
+  { id: "pet-blanket", name: "Dekica za ljubimca", price: 19, emoji: "🧣", category: "pet" },
+  { id: "wall-clock", name: "Zidni sat", price: 20, emoji: "🕰️", category: "house" },
+  { id: "flower-basket", name: "Košara s cvijećem", price: 18, emoji: "💐", category: "house" },
 ] as const satisfies ReadonlyArray<{
   id: string;
   name: string;
   price: number;
   emoji: string;
   category: "pet" | "house";
+  careAssociation?: "feed" | "play" | "groom";
 }>;
 
 export const THEMES = [
@@ -223,6 +238,7 @@ export const HR = {
   navigationLabel: "Dječja navigacija",
   parentUtilityLabel: "Roditeljske mogućnosti",
   navAdventure: "Pustolovina",
+  navCare: "Briga o ljubimcu",
   navMoney: "Moj novac",
   navChores: "Poslovi",
   navShop: "Trgovina",
@@ -230,6 +246,9 @@ export const HR = {
   navParent: "Kutak za roditelje",
   currentView: "Otvorena stranica",
   adventureHeading: "Pustolovina sa šapicama",
+  adventureReady: "Nova pustolovina je spremna.",
+  correctAnswer: "Točno",
+  missionCompletedHeading: "Misija je dovršena",
   adventureIntro: "Prati stazu, riješi četiri novčane misije i osvoji četiri ukrasne značke!",
   adventureMapLabel: "Staza novčanih misija",
   adventureGuide: "Luna, tvoja vodičica",
@@ -321,6 +340,7 @@ export const HR = {
   ownedLabel: "Već imaš",
   unaffordableLabel: "Nemaš dovoljno zlatnika",
   inventoryHeading: "Moje kupljene stvari",
+  careAssociation: (action: "feed" | "play" | "groom") => ({ feed: "Ukras za hranjenje", play: "Ukras za igru", groom: "Ukras za četkanje" })[action],
   houseHeading: "Moja kuća",
   houseIntro: "Odaberi temu i postavi kupljene ljubimce i stvari u slobodna mjesta. Nije potrebno povlačenje.",
   themeLabel: "Tema kuće",
@@ -329,6 +349,21 @@ export const HR = {
   itemSlotsHeading: "Mjesta za stvari",
   emptySlot: "Slobodno mjesto",
   houseFull: "Sva odgovarajuća mjesta trenutačno su zauzeta.",
+  careHeading: "Briga o ljubimcu",
+  careIntro: "Pobrini se za svog ljubimca, dovrši dnevni zadatak i skupljaj iskustvo. Iskustvo nije novac.",
+  careNoPet: "Još nemaš ljubimca za njegu. Posjeti Trgovinu i odaberi ljubimca samo izmišljenim zlatnicima iz novčanika.",
+  careQuestHeading: "Današnji zadatak",
+  careQuestDone: "Današnji zadatak je dovršen. Novi dnevni zadatak stiže sutra po UTC vremenu.",
+  careNeedsHeading: "Kako se ljubimac osjeća",
+  careFullness: "Sitost",
+  careHappiness: "Veselje",
+  careCleanliness: "Urednost",
+  careProgress: (xp: number, level: number) => `Razina ${level} — ${xp} od najviše 1000 XP`,
+  careNextSession: "Možeš se vratiti nakon isteka vremena za njegu, a novi dnevni zadatak stiže sutra.",
+  careActionFeed: "Nahrani",
+  careActionPlay: "Igraj se",
+  careActionGroom: "Očetkaj",
+  careActionAccessible: (action: string, pet: string) => `${action} ljubimca ${pet}`,
   petHouseFullGuidance: "Sva su četiri mjesta za ljubimce zauzeta. Ostali ljubimci ostaju na popisu i čekaju slobodno mjesto.",
   areaSlotsLabel: (areaName: string) => `Mjesta u području ${areaName}`,
   assetLabel: "Što želiš postaviti?",
@@ -340,7 +375,7 @@ export const HR = {
   unplacedPets: "Ljubimci izvan kuće",
   unplacedItems: "Stvari izvan kuće",
   parentHeading: "Kutak za roditelje",
-  parentIntro: "Zaštićeni roditeljski kutak služi za dodavanje zlatnika i pregled poslova.",
+  parentIntro: "Lokalni roditeljski kutak služi za dodavanje zlatnika i pregled poslova na ovom uređaju.",
   parentSetupHeading: "Postavi roditeljski PIN",
   parentSetupIntro: "Izradi PIN od točno šest znamenki. PIN vrijedi samo u ovom pregledniku i nije korisnički račun.",
   parentUnlockHeading: "Otključaj roditeljski kutak",
@@ -350,12 +385,12 @@ export const HR = {
   parentPinDescription: "Upiši točno šest znamenki, bez slova i razmaka.",
   parentSetupButton: "Postavi PIN i otključaj",
   parentUnprovisionedHeading: "Roditeljski pristup nije postavljen",
-  parentUnprovisioned: "Roditeljski pristup još nije pripremljen za ovaj profil preglednika. Odrasla osoba koja je pripremila igru mora ga postaviti izvan dječjeg sučelja.",
+  parentUnprovisioned: "Roditelj ili skrbnik može sada postaviti lokalni PIN za ovaj profil preglednika. Ovaj PIN nije provjera identiteta ni korisnički račun.",
   parentUnlockButton: "Otključaj",
   parentLockButton: "Zaključaj",
   parentLockAccessible: "Zaključaj roditeljski kutak",
-  parentLocalNotice: "Zaštita vrijedi samo na ovom uređaju i u ovom profilu preglednika.",
-  parentForgotten: "Ako zaboraviš PIN, moraš izbrisati lokalne podatke ove igre. Time se trajno brišu i PIN i sav napredak igre.",
+  parentLocalNotice: "PIN je samo lokalna prepreka za dijete u ovom profilu preglednika. Ne štiti od vlasnika uređaja i ne vrijedi na drugim uređajima.",
+  parentForgotten: "Ako zaboraviš PIN, oporavak nije udaljen: uz pristanak moraš izbrisati sva četiri lokalna zapisa. Time se trajno brišu PIN, igra, pustolovina i napredak njege.",
   parentUnavailableHeading: "Roditeljski kutak nije dostupan",
   parentUnavailable: "Sigurno otključavanje trenutačno nije dostupno. Otvori igru putem sigurne HTTPS veze i pokušaj ponovno.",
   parentDenied: "Roditeljska radnja nije dopuštena dok je kutak zaključan.",
@@ -370,7 +405,7 @@ export const HR = {
   parentItemsSummary: "Ukupno kupljenih stvari",
   coinValue: (amount: number) => `${amount} ${amount % 10 === 1 && amount % 100 !== 11 ? "zlatnik" : "zlatnika"}`,
   parentMissionsValue: (amount: number) => `${amount} od 4`,
-  parentPetsValue: (amount: number) => `${amount} od 8`,
+  parentPetsValue: (amount: number) => `${amount} od 12`,
   parentCountValue: (amount: number) => `${amount}`,
   parentRecentHeading: "Nedavne aktivnosti u učenju",
   parentRecentEmpty: "Još nema nedavnih aktivnosti u učenju.",
@@ -420,7 +455,7 @@ export const PARENT_ACCESS_MESSAGES: Record<ParentAccessCode, string> = {
 };
 
 export const ADVENTURE_MESSAGES: Record<AdventureLoadCode | AdventureResultCode, string> = {
-  "adventure-load-empty": "Nova pustolovina je spremna!",
+  "adventure-load-empty": "Nova pustolovina je spremna.",
   "adventure-load-malformed": "Spremljena pustolovina nije čitljiva. Počinješ sigurnu novu pustolovinu, a stari zapis nije promijenjen.",
   "adventure-load-unknown-version": "Spremljena pustolovina je iz nepoznate inačice. Počinješ sigurnu novu pustolovinu, a stari zapis nije promijenjen.",
   "adventure-load-invalid-state": "Spremljena pustolovina nije valjana. Počinješ sigurnu novu pustolovinu, a stari zapis nije promijenjen.",

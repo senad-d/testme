@@ -1,6 +1,6 @@
 ### 1. Repair the completed child-navigation regression test
 
-- [ ] Update the navigation test to query the post-rerender DOM rather than retaining the initial detached navigation element.
+- [x] Update the navigation test to query the post-rerender DOM rather than retaining the initial detached navigation element.
 
 #### Why
 The confirmed originating plan is `docs/tasks/start-implementing-the-changes-specified-in-docs-task-ed715d30e9ec-tasks.md` from OrcMe task `task-ed715d30e9ec`. Its Task 1 source changes are present: `childViews` has five destinations and `render()` emits a separate `.parent-utility`. The corresponding test currently captures `childNavigation` before navigation clicks, but each click calls `render()` and replaces `root.innerHTML`, so its final assertion reads a detached element.
@@ -19,7 +19,7 @@ Depends on: none. In the existing child-navigation test, retain assertions about
 
 ### 2. Make Pustolovina mission-first and collapse optional learning
 
-- [ ] Rebuild the adventure view around the compact Luna introduction, active mission, compact progress, and initially closed supporting disclosures.
+- [x] Rebuild the adventure view around the compact Luna introduction, active mission, compact progress, and initially closed supporting disclosures.
 
 #### Why
 The confirmed plan’s remaining Task 2 is unimplemented: current `renderAdventure` still renders scenery, the large guide, progress, and full journey stories before the mission, and renders practice, badges, and money school expanded. This conflicts with the approved design specification’s mission-first hierarchy while `ADVENTURE_MISSIONS`, `MISSION_IDS`, practice, badges, and school already supply the existing content to preserve.
@@ -41,7 +41,7 @@ Depends on: Task 1. In `renderAdventure`, render a compact decorative Luna intro
 
 ### 3. Localize feedback and restore focus across rerenders
 
-- [ ] Add local Croatian result states and explicit focus intents for navigation, validation, mission answers, and accepted child actions.
+- [x] Add local Croatian result states and explicit focus intents for navigation, validation, mission answers, and accepted child actions.
 
 #### Why
 Current action handlers call `render()`, which replaces focused controls, and ordinary messages are emitted through the distant global `#feedback`. The design requires retryable local mission feedback, one appropriate live announcement, and predictable focus after the replacement DOM exists without changing game rules or persistence.
@@ -63,7 +63,7 @@ Depends on: Task 2. Add render-time focus and local-result intent state inside `
 
 ### 4. Clarify money and chore actions at the point of use
 
-- [ ] Reorder Moj novac and Poslovi and add non-mutating loan previews, chore state badges, and local confirmations.
+- [x] Reorder Moj novac and Poslovi and add non-mutating loan previews, chore state badges, and local confirmations.
 
 #### Why
 Current money rendering groups saving and loan forms together and offers no entered-amount consequence preview. Current chores render the earnings challenge before chores and merely disable **Gotovo!** when a request is pending. Existing `borrowCoins`, `repayDebt`, `requestChore`, and their result codes define rules that the redesign must retain.
@@ -85,7 +85,7 @@ Depends on: Task 3. Reorder money to current mission, balances, savings, planner
 
 ### 5. Keep shop and house consequences visible
 
-- [ ] Add in-view wallet/filter results to Trgovina and two-step local placement feedback to Moja kuća.
+- [x] Add in-view wallet/filter results to Trgovina and two-step local placement feedback to Moja kuća.
 
 #### Why
 The current shop omits the wallet amount and a filter result count, while its disabled unaffordable reason is generic. The house retains select placement but gives no two-step instruction or nearby destination outcome. Existing catalog order, affordability checks, select controls, and parent fail-closed rendering are the contracts to preserve.
@@ -107,7 +107,7 @@ Depends on: Task 3. In `renderShop`, add a textual wallet summary below the head
 
 ### 6. Cover the continued UI/UX DOM, focus, and persistence contracts
 
-- [ ] Extend integrated tests for the completed redesign and execute the defined automated and fresh-browser validation.
+- [x] Extend integrated tests for the completed redesign and execute the defined automated and fresh-browser validation.
 
 #### Why
 `src/app.test.ts` already exercises integrated rendering, storage, and parent fail-closed states, while Task 1 demonstrated that rerender-sensitive DOM assertions need to query current elements. The design specification requires regression evidence for hierarchy, local feedback, focus, Croatian language, persistence, responsive layout, and accessibility after Tasks 2–5.

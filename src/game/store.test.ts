@@ -32,6 +32,10 @@ const EXPECTED_CHORES = [
   ["sweep-kitchen", "Pometi kuhinju", 9],
   ["help-garden", "Pomozi u vrtu", 11],
   ["sort-recycling", "Razvrstaj otpad", 14],
+  ["wipe-table", "Obriši stol", 6],
+  ["organize-books", "Složi knjige", 7],
+  ["dust-shelves", "Obriši prašinu s polica", 8],
+  ["collect-mail", "Donesi poštu", 5],
 ];
 const EXPECTED_PETS = [
   ["fish", "Ribica", 30, "🐟"],
@@ -42,6 +46,10 @@ const EXPECTED_PETS = [
   ["goat", "Koza", 70, "🐐"],
   ["horse", "Konj", 100, "🐴"],
   ["cow", "Krava", 110, "🐄"],
+  ["hamster", "Hrčak", 45, "🐹"],
+  ["turtle", "Kornjača", 55, "🐢"],
+  ["hedgehog", "Ježić", 65, "🦔"],
+  ["alpaca", "Alpaka", 90, "🦙"],
 ];
 const EXPECTED_ITEMS = [
   ["bowl", "Zdjelica", 10, "🥣", "pet"],
@@ -54,6 +62,12 @@ const EXPECTED_ITEMS = [
   ["pet-brush", "Četka za ljubimce", 14, "🪮", "pet"],
   ["lamp", "Svjetiljka", 16, "🏮", "house"],
   ["bookshelf", "Polica za knjige", 24, "📚", "house"],
+  ["water-bottle", "Bočica za vodu", 12, "🍼", "pet"],
+  ["play-ball", "Loptica za igru", 13, "⚽", "pet"],
+  ["grooming-glove", "Rukavica za četkanje", 15, "🧤", "pet"],
+  ["pet-blanket", "Dekica za ljubimca", 19, "🧣", "pet"],
+  ["wall-clock", "Zidni sat", 20, "🕰️", "house"],
+  ["flower-basket", "Košara s cvijećem", 18, "💐", "house"],
 ];
 const EXPECTED_THEMES = [
   ["sun", "Sunce"],
@@ -126,9 +140,12 @@ describe("versioned store", () => {
     expect(CHORES.map(({ id, name, reward }) => [id, name, reward])).toEqual(EXPECTED_CHORES);
     expect(PETS.map(({ id, name, price, emoji }) => [id, name, price, emoji])).toEqual(EXPECTED_PETS);
     expect(ITEMS.map(({ id, name, price, emoji, category }) => [id, name, price, emoji, category])).toEqual(EXPECTED_ITEMS);
+    expect(ITEMS.filter((item) => "careAssociation" in item).map(({ id, careAssociation }) => [id, careAssociation])).toEqual([
+      ["water-bottle", "feed"], ["play-ball", "play"], ["grooming-glove", "groom"],
+    ]);
     expect(THEMES.map(({ id, name }) => [id, name])).toEqual(EXPECTED_THEMES);
-    expect(new Set(CHORES.map(({ id }) => id)).size).toBe(10);
-    expect([...CHORES.map(({ reward }) => reward)].sort((a, b) => a - b)).toEqual([4, 5, 6, 7, 8, 9, 10, 11, 12, 14]);
+    expect(new Set(CHORES.map(({ id }) => id)).size).toBe(14);
+    expect([...CHORES.map(({ reward }) => reward)].sort((a, b) => a - b)).toEqual([4, 5, 5, 6, 6, 7, 7, 8, 8, 9, 10, 11, 12, 14]);
     expect(CHORES.every(({ reward }) => Number.isSafeInteger(reward) && reward > 0)).toBe(true);
 
     for (const { id } of CHORES) {
@@ -240,7 +257,8 @@ describe("versioned store", () => {
     expect(loadState(storage)).toEqual({ state, code: null });
 
     for (const activity of state.activities) {
-      expect(isValidState({ ...state, activities: [{ ...activity, name: `${activity.name}!` }] })).toBe(false);
+      expect("name" in activity).toBe(true);
+      if ("name" in activity) expect(isValidState({ ...state, activities: [{ ...activity, name: `${activity.name}!` }] })).toBe(false);
       expect(isValidState({ ...state, activities: [{ ...activity, amount: activity.amount + 1 }] })).toBe(false);
     }
     expect(isValidState({

@@ -1,6 +1,6 @@
 # Product Requirements Document: Game for Learning About Money
 
-**Status:** Product requirements record. It describes requested product behavior; it does not approve an implementation, technical architecture, catalog, economy values, or release.
+**Status:** Approved first-release product contract. The original requirements below remain authoritative; the selected installable PWA target, repeatable loop, persistence, catalog, evidence, and release values are fixed in `../specs/repeatable-browser-game.md`.
 
 ## 1. Product summary
 
@@ -87,18 +87,22 @@ The following are not requested and must not be assumed to be part of this produ
 - user accounts, authentication, or a secure parent-control system;
 - cloud storage, device-to-device synchronization, or shared profiles;
 - social features, advertising, analytics, or external purchases; and
-- a prescribed technical stack, data-storage method, animal catalog, item catalog, reward values, prices, loan limit, interest policy, or release platform.
+- any release platform, catalog, economy, or persistence behavior other than the bounded first-release selections approved below.
 
-## 6. Requirements still needing product decisions
+## 6. Approved first-release decisions
 
-The request does not define the following. They must be decided before they are treated as fixed product behavior:
+The product owner selects the lowest-disruption release branch defined in `../specs/repeatable-browser-game.md`:
 
-- specific chores, animals, items, rewards, prices, borrowing limit, and repayment rules;
-- whether borrowing has any limits or other constraints;
-- how a parent grants money and approves chores in the interface;
-- the exact house-customization interactions and available themes or layouts;
-- supported browser versions, hosting, persistence behavior, and offline behavior; and
-- product success measures and acceptance-test thresholds.
+- an installable, offline-capable static PWA for one browser-local child profile, with Croatian player-facing content and fictional zlatnici;
+- the existing interest-free 100-zlatnik debt limit and existing money, approval, store, adventure, and house rules;
+- a repeatable owned-pet loop with one daily care quest, three deterministic care actions, bounded daily need changes, XP levels capped at 10, cosmetic milestones, no pet loss, and no zlatnik quest rewards;
+- one strict, independently recoverable `croatian-money-pet-game:progression:v1` record whose stable care-event IDs atomically commit care, quest evidence/completion, and XP/cosmetic reward without mutating the three legacy records;
+- local six-digit guardian enrollment as browser-local deterrence only, with session-only unlock and disclosed consented destructive-reset recovery;
+- exactly four additional chores, four pets, six items, and three care-only daily quests in the first bundled content release, with all IDs, Croatian copy, associations, prices, and rewards fixed by the specification;
+- phone, tablet, and desktop evidence at 320 × 568, 768 × 1024, and 1440 × 900 CSS px, plus current/previous stable Chromium, Firefox, and Safari gameplay targets subject to the installability limits recorded in the specification; and
+- a 5–8 minute target session and a consented, non-identifying moderated release test with at least five child/parent pairs and explicit 4-of-5 child and parent success thresholds.
+
+This approval preserves the exclusions for real money, payments, accounts, advertising, analytics, social features, external purchases, cloud synchronization, remote parent authentication, and cross-device protection. Selecting a native or any non-PWA platform stops dependent implementation Tasks 2–9 and requires a separately reviewed replacement plan rather than treating those tasks as no-ops.
 
 ## 7. Acceptance checklist
 
@@ -113,4 +117,4 @@ The product requirements are met when the delivered game demonstrates all of the
 
 ## 8. Source grounding
 
-This PRD is grounded solely in the user’s stated product request and clarification that all user-facing game content—including buttons, instructions, errors, and accessibility labels—must be Croatian. It deliberately does not adopt the unvalidated technical proposal in `../specs/hrvatska-igra-o-novcu.md` as product requirements.
+The original requirements are grounded in the user’s stated product request and clarification that all user-facing game content—including buttons, instructions, errors, and accessibility labels—must be Croatian. The approved first-release decisions use the user-authorized existing task bundle and are fully enumerated in `../specs/repeatable-browser-game.md`; they do not adopt the earlier unvalidated technical proposal in `../specs/hrvatska-igra-o-novcu.md`.

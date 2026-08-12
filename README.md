@@ -37,19 +37,19 @@ npm run build
 npm run coverage:parent
 ```
 
-The build command creates a static `dist/` directory. Production hosting must serve `dist/` over HTTPS in a secure browser context because parent PIN unlock depends on Web Crypto. `localhost` is a development-only secure-context exception. In an insecure or Web-Crypto-unavailable context, the Croatian fail-closed unavailable state is shown and all parent controls remain inaccessible. The application does not require server-side routing.
+The build command creates a static installable PWA in `dist/`. Production hosting must serve `dist/` over HTTPS in a secure browser context because parent PIN unlock depends on Web Crypto and the offline shell depends on a service worker. `localhost` is a development-only secure-context exception. In an insecure or Web-Crypto-unavailable context, the Croatian fail-closed unavailable state is shown and all parent controls remain inaccessible. The application does not require server-side routing. `service-worker.js` uses the versioned cache `moja-trgovina-ljubimaca-shell-v1`, caches only same-origin navigation/static responses, removes only older caches with that prefix on activation, and shows a controlled Croatian fallback for an uncached offline navigation. Updating the worker cache version refreshes the shell without reading or changing localStorage. No background sync, push, analytics, or remote content is used.
 
 ## Player navigation
 
-The primary child navigation contains five Croatian destinations: **Pustolovina**, **Moj novac**, **Poslovi**, **Trgovina**, and **Moja kuća**. **Kutak za roditelje** is a separate parent utility, not a child-navigation destination. The header identifies the game boundary with: **Ovo je igra s izmišljenim zlatnicima — bez pravog novca.**
+The primary child navigation contains six Croatian destinations: **Pustolovina**, **Briga o ljubimcu**, **Moj novac**, **Poslovi**, **Trgovina**, and **Moja kuća**. **Kutak za roditelje** is a separate parent utility, not a child-navigation destination. The header identifies the game boundary with: **Ovo je igra s izmišljenim zlatnicima — bez pravog novca.**
 
 ## Maintaining content and rules
 
 Frequently changed values and all Croatian display copy live in `src/content/hr.ts`. The final closed catalogs are:
 
-- `CHORES` (10): **Posloži krevet**, **Pospremi igračke**, **Zalij biljke**, **Postavi stol**, **Pomozi složiti rublje**, **Složi školski pribor**, **Nahrani ljubimce**, **Pometi kuhinju**, **Pomozi u vrtu**, and **Razvrstaj otpad**.
-- `PETS` (8): **Ribica**, **Kunić**, **Mačka**, **Pas**, **Ptičica**, **Koza**, **Konj**, and **Krava**.
-- `ITEMS` (10): **Zdjelica**, **Igračka**, **Krevetić**, **Biljka**, **Tepih**, **Zidna slika**, **Stajalica za ptice**, **Četka za ljubimce**, **Svjetiljka**, and **Polica za knjige**.
+- `CHORES` (14): the ten original entries plus **Obriši stol**, **Složi knjige**, **Obriši prašinu s polica**, and **Donesi poštu**.
+- `PETS` (12): the eight original entries plus **Hrčak**, **Kornjača**, **Ježić**, and **Alpaka**.
+- `ITEMS` (16): the ten original entries plus **Bočica za vodu**, **Loptica za igru**, **Rukavica za četkanje**, **Dekica za ljubimca**, **Zidni sat**, and **Košara s cvijećem**.
 - `HOUSE_AREAS` in `src/game/house.ts` (4): **Dnevna soba**, **Soba za ljubimce**, **Spremište**, and **Dvorište i staja**. This ordered contract owns all four `pet-N` and six `item-N` V1 slots; Croatian names and descriptions are in `HOUSE_AREA_CONTENT`.
 - `THEMES`: free house themes.
 - `CONFIG.debtLimit`: maximum fictional debt
@@ -71,26 +71,28 @@ Internal result codes are closed typed inventories in `src/game/store.ts`. Adven
 
 ## Browser-local saved data and parent access
 
-Three separate versioned records are stored in `localStorage`:
+Four separate versioned records are stored in `localStorage`:
 
 ```text
 croatian-money-pet-game:v1
 croatian-money-pet-game:parent-access:v1
 croatian-money-pet-game:adventure:v1
+croatian-money-pet-game:progression:v1
 ```
 
-The first record contains persistent game balances, chores, purchases, house choices, and activity history. The second contains the versioned PBKDF2 parameters, random salt, and derived verifier for the six-digit local parent PIN; it never intentionally stores the raw PIN. The third contains only validated mission progress: the active/completed missions, correct-answer and qualifying-action evidence, four-star count, and four badge IDs. Adventure stars and badges are cosmetic and cannot be spent or change a balance. Existing valid game and parent records remain compatible because the adventure loader never migrates, reinterprets, rewrites, or removes them. Each loader reads only its own V1 record, has an independent recovery boundary, never silently migrates or reinterprets another record, and preserves its unreadable stored record until a later accepted change in that subsystem.
+The first record contains persistent game balances, chores, purchases, house choices, and activity history. The second contains the versioned PBKDF2 parameters, random salt, and derived verifier for the six-digit local parent PIN; it never intentionally stores the raw PIN. The third contains only validated mission progress: the active/completed missions, correct-answer and qualifying-action evidence, four-star count, and four badge IDs. Adventure stars and badges are cosmetic and cannot be spent or change a balance. The fourth record contains pet needs, daily care quest/evidence, stable event receipts, XP, levels, and cosmetic titles. Care and quests never mutate zlatnici or any of the three legacy records. Existing valid game, adventure, and parent records remain compatible because the progression loader never migrates, reinterprets, rewrites, or removes them. Each loader reads only its own V1 record, has an independent recovery boundary, never silently migrates or reinterprets another record, and preserves its unreadable stored record until a later accepted change in that subsystem.
 
 Persistence boundaries are intentionally narrow:
 
 - **Persistent game V1:** fictional wallet, savings and debt balances; chore requests and accepted parent decisions; purchased animals/items; selected house theme and placements; and existing activity history.
 - **Persistent adventure V1:** the four main missions' validated answers, action evidence, completion, four cosmetic stars, and four badges.
 - **Persistent parent-access V1:** only the local PBKDF2 credential record; never the raw PIN and never an unlocked flag.
+- **Persistent progression V1:** bounded pet needs, care cooldowns, one daily quest, atomic care evidence/event receipts, XP, levels, and cosmetic titles. Malformed or unknown progression bytes fail closed to safe memory and remain untouched. With informed guardian consent, remove only `croatian-money-pet-game:progression:v1` to restart pet-care progress independently.
 - **Controller-memory-only:** earnings-challenge round/feedback, shop category and affordability filters, savings-goal calculation/form result, and practice card/feedback/correct-card progress. Navigation retains these tools only while the current controller exists; reload or controller recreation resets them without changing persisted records.
 
 A successful parent unlock is also session-only: it is lost when the parent leaves the section, selects **Zaključaj**, reloads, or starts a new app controller. The Croatian learning overview is rendered **only while successfully unlocked**. It is read-only, derives seven values and up to five recent existing activities from current game/adventure memory, grants no additional authority, and is absent while unprovisioned, locked, unavailable, relocked, or reloaded.
 
-The public game does not offer first-use PIN enrollment: a child using the ordinary interface must not be able to become the first parent. A fresh profile therefore remains locked and visibly unprovisioned until its credential is established through a separate parent-authenticated provisioning boundary. This static distribution does not implement such a boundary, so fresh-profile self-service enrollment is intentionally unsupported. The test suite uses `setupParentAccess` only as an external fixture to verify compatibility, locking, and unlocking; `createApp` neither imports nor calls it.
+A fresh profile offers first-use local guardian PIN enrollment only inside the separately labeled **Kutak za roditelje** utility. It requires matching six-digit values and Web Crypto, then unlocks only the current controller session. Grant, chore decision, and overview controls remain absent until setup succeeds. This is a local guardian-labeled deterrence flow, not proof that the person is an adult.
 
 This PIN gate is a local child-deterrence boundary for the current browser profile, not an account or server-grade authentication. It does not protect against somebody who controls the device, browser profile, developer tools, or local storage. There is no cloud backup, remote recovery, secure remote access, or synchronization between devices.
 
@@ -100,6 +102,7 @@ This PIN gate is a local child-deterrence boundary for the current browser profi
 localStorage.removeItem("croatian-money-pet-game:parent-access:v1")
 localStorage.removeItem("croatian-money-pet-game:v1")
 localStorage.removeItem("croatian-money-pet-game:adventure:v1")
+localStorage.removeItem("croatian-money-pet-game:progression:v1")
 location.reload()
 ```
 
@@ -108,8 +111,8 @@ Changing any stored schema requires an explicit migration and a new version stra
 ## Pre-release checklist
 
 - [ ] Run `npm test`, `npm run check`, `npm run build`, and `npm run coverage:parent`.
-- [ ] On a fresh profile, confirm the Croatian unprovisioned state appears with no setup, unlock, grant, approval, or return controls.
-- [ ] With an externally provisioned compatible parent record, serve the production `dist/` build over HTTPS in a secure context and complete unlock and **Zaključaj**.
+- [ ] On a fresh profile, complete Croatian local guardian enrollment and confirm no grant, approval, return, or overview control appears before successful setup.
+- [ ] Serve the production `dist/` build over HTTPS in a clean profile; inspect the manifest, install the PWA where supported, complete setup/unlock/**Zaključaj**, load once online, and verify offline reload.
 - [ ] Simulate unavailable Web Crypto and confirm the controlled Croatian unavailable message appears with no grant, approval, or return controls.
 - [ ] Confirm leaving the parent section and reloading both relock it.
 - [ ] Complete the four missions in order: correct answer plus save at least 5; correct answer plus parent-approved chore; correct answer plus wallet-funded purchase; correct answer plus borrow and repay at least the borrowed amount.
@@ -120,9 +123,21 @@ Changing any stored schema requires an explicit migration and a new version stra
 - [ ] Complete keyboard-only and touch flows; confirm visible keyboard focus and 44×44 px touch targets.
 - [ ] Test the correct-answer, action-step, new-star/badge, and journey-completion reactions in normal motion and with `prefers-reduced-motion: reduce`; confirm the same progress information remains available in the checklist, text, stars, and badges with animation disabled.
 - [ ] Check layouts manually at 320, 768, and 1440 px with no clipping, overlap, or horizontal scrolling.
-- [ ] Run the destructive-reset console procedure, confirm none of the three keys remains, reload, and confirm a fresh game, first adventure mission, zero stars, and no parent credential.
+- [ ] Run the destructive-reset console procedure, confirm none of the four keys remains, reload, and confirm a fresh game, first adventure mission, zero stars, no care XP, and no parent credential.
 
-### Final post-fix release receipt — 2026-08-11
+### PWA/repeatable-game implementation receipt — 2026-08-12
+
+- **Automated commands executed:** `npm test` passed **96/96 tests in 10 files**; `npm run check` passed and `--listFiles` explicitly listed `src/game/progression.ts`, `src/game/quests.ts`, and every other `src/**/*.ts` source and test module; `npm run build` passed; `npm run coverage:parent` passed **47/47 tests** with 97.47% statements/lines, 89.68% branches, and 100% functions across its bounded target.
+- **Production output:** Vite 6.0.3 produced `dist/index.html`, `dist/assets/index-BQuyvm8Q.js`, `dist/assets/index-CVzpuecg.css`, `dist/manifest.webmanifest`, `dist/icon.svg`, and `dist/service-worker.js`. The four PWA shell SHA-256 values were `77cc7f61…4a726` (HTML), `23068410…e5213` (manifest), `c63e2dac…a8c0` (icon), and `9cbc6363…b94d` (worker). `node --check public/service-worker.js` passed.
+- **Chrome HTTPS method/result:** installed **Google Chrome 151.0.7922.109** ran headless with a new clean profile against the fresh `dist/` over local HTTPS (`https://localhost:8446`) using a one-run self-signed certificate and Chrome’s certificate-error override. Chrome reported the same-origin worker activated at `/service-worker.js`, a same-origin `/manifest.webmanifest`, Croatian document language/title, and an active service-worker controller after online reload.
+- **Responsive/accessibility observations in that Chrome run:** at **320×568**, **768×1024**, and **1440×900** CSS px, `documentElement.scrollWidth === innerWidth`; all 13 enabled controls in the initial rendered state were at least 44×44 CSS px; a keyboard Tab focused the skip link with a computed 4 px solid outline; and `prefers-reduced-motion: reduce` was active while the equivalent textual Pustolovina information remained present. Conditional states beyond the initial surface were automated in Vitest but were not exhaustively remeasured in this installed-browser run.
+- **Offline/update/persistence observation:** after an online controlled reload, Chrome network emulation was set fully offline and the production app reloaded under the active worker. The Croatian application title/body remained available. Sentinel bytes placed in all four localStorage keys before reload returned exactly `sentinel-0` through `sentinel-3` afterward, proving this install/activate/offline path did not rewrite those records. A multi-version worker update was not staged, so update migration remains unexecuted beyond the source-tested cache-version cleanup policy.
+- **Install UI boundary:** the headless Chrome run proved manifest parsing/linkage and an activated offline worker, but did **not** exercise Chrome’s visible installation UI or launch an installed standalone window. No installed-window claim is made.
+- **Other installed browsers:** Safari **26.5** and Firefox **153.0.3** version metadata was readable, but their production gameplay, offline, viewport, installation, keyboard, target-size, reduced-motion, and persistence checks were **not executed**. Edge was not installed. These gates remain unclaimed rather than passed.
+- **Moderated playtest:** no consented group of five child/parent pairs was available or tested. All five 4-of-5 comprehension, completion, return-intent, enrollment-boundary, and relock thresholds therefore remain **blocked/unmeasured**. No participant data was collected.
+- **Release conclusion:** implementation and automated checks pass, and the bounded Chrome HTTPS/offline evidence above passes. The assembled game is **not release-validated or claimed shipped** because installed-window, Safari, Firefox, update-cycle, and moderated playtest gates remain open.
+
+### Superseded pre-PWA release receipt — 2026-08-11
 
 - **Executed:** clean `npm ci` and all nine prescribed commands ran on 2026-08-11 from 20:42 CEST (18:42 UTC).
 - **Production build:** `npm run build` produced `assets/index-BhN2ah8p.js`, `assets/index-C9M97U2J.css`, and `index.html`. The SHA-256 manifest digest is `10914ffd0c1e9d7e0713b4eedc82e27e29732fe7d5b61883fd4ee74d003cdc65`, calculated over each sorted `dist/` relative path, a NUL separator, its file bytes, and a trailing NUL.

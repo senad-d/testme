@@ -57,23 +57,30 @@ button:focus-visible, input:focus-visible, select:focus-visible, a:focus-visible
 .fictional-notice { max-width: 31rem; background: rgb(255 255 255 / 75%); border-radius: .8rem; padding: .7rem; }
 
 .app-navigation { padding: .65rem max(1rem, calc((100% - 1180px) / 2)); background: var(--card); box-shadow: var(--shadow); }
+.navigation-shell { display: grid; gap: .5rem; }
 .child-navigation { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .4rem; }
+.child-navigation button, .parent-utility button { display: flex; align-items: center; justify-content: center; gap: .3rem; line-height: 1.2; }
 .child-navigation button { min-width: 0; }
 .child-navigation button:nth-child(1) { border-color: #d57b08; }
-.child-navigation button:nth-child(2) { border-color: var(--blue); }
-.child-navigation button:nth-child(3) { border-color: #28885c; }
-.child-navigation button:nth-child(4) { border-color: #bb4a86; }
-.child-navigation button:nth-child(5) { grid-column: span 2; border-color: #a05a18; }
-.nav-icon { margin-inline-end: .3rem; }
+.child-navigation button:nth-child(2) { border-color: var(--purple); }
+.child-navigation button:nth-child(3) { border-color: var(--blue); }
+.child-navigation button:nth-child(4) { border-color: #28885c; }
+.child-navigation button:nth-child(5) { border-color: #bb4a86; }
+.child-navigation button:nth-child(6) { border-color: #a05a18; }
 .child-navigation button.active { background: var(--blue-dark); color: white; border-color: var(--blue-dark); box-shadow: inset 0 -3px 0 white, 0 4px 0 #0d2d59; }
-.parent-utility { display: flex; justify-content: flex-end; margin-top: .4rem; }
-.parent-utility button { min-width: 44px; min-height: 44px; border-color: var(--purple); }
+.parent-utility { display: flex; align-items: center; justify-content: flex-end; min-width: 0; padding: .35rem; border: 2px solid rgb(123 85 217 / 32%); border-radius: 1rem; background: #f7f1ff; }
+.parent-utility button { min-width: 44px; min-height: 44px; max-width: 100%; border-color: var(--purple); }
 .parent-utility button.active { background: var(--blue-dark); color: white; border-color: var(--blue-dark); box-shadow: inset 0 -3px 0 white, 0 4px 0 #0d2d59; }
 .feedback { min-height: 3.25rem; padding: .7rem max(1rem, calc((100% - 1180px) / 2)); font-weight: 700; color: #70251e; }
 .feedback.has-feedback { background: rgb(255 255 255 / 75%); border-bottom: 2px dashed var(--coral); }
+.local-result { margin: .75rem 0; padding: .75rem 1rem; border: 3px solid #28885c; border-radius: 1rem; background: #edfff4; color: #155b37; font-weight: 700; }
+.local-result.is-completion { border-color: var(--yellow); background: #fff9d9; }
+.local-result h2, .local-result p { margin: 0; }
+.local-result h2 { margin-bottom: .35rem; }
 main { width: min(100% - 2rem, 1180px); margin: 0 auto 3rem; }
 .view { position: relative; padding: .35rem clamp(.2rem, 2vw, 1rem) 1rem; border-radius: 1.5rem; }
 .view[data-view="adventure"] { --view-accent: #d57b08; }
+.view[data-view="care"] { --view-accent: var(--purple); }
 .view[data-view="money"] { --view-accent: var(--blue); }
 .view[data-view="chores"] { --view-accent: #28885c; }
 .view[data-view="shop"] { --view-accent: #bb4a86; }
@@ -91,6 +98,7 @@ h2, h3 { line-height: 1.2; }
 .money-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 1rem; margin: 1rem 0; }
 .amount-form { display: grid; grid-template-columns: minmax(0, 1fr); gap: .5rem; border-top: 1px solid #d7e3f2; padding-top: 1rem; margin-top: 1rem; }
 input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; padding: .5rem; background: white; color: #1b2638; }
+.amount-form input[aria-invalid="true"] { border-color: var(--coral); background: #fff2f0; }
 .quick-amounts, .slot-actions { display: flex; flex-wrap: wrap; gap: .4rem; }
 .quick-amounts button { flex: 1; }
 .card-grid { margin-bottom: 1.5rem; }
@@ -190,6 +198,14 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .parent-unlocked { border-color: var(--mint); }
 .pin-form { display: grid; gap: .6rem; }
 .local-notice { padding: .7rem; border-left: 5px solid var(--yellow); background: #fff9dc; font-weight: 700; }
+.care-progress, .care-quest { border-color: var(--purple); }
+.care-needs { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .75rem; }
+.care-needs > div { min-width: 0; padding: .75rem; border-radius: .8rem; background: #f7f1ff; }
+.care-needs dt { font-weight: 800; }
+.care-needs dd { margin: .35rem 0 0; }
+.care-needs meter { width: 100%; min-height: 1.2rem; accent-color: #28885c; }
+.care-actions { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .6rem; margin-top: 1rem; }
+#care-result:not(:empty) { padding: .75rem; border-left: 5px solid var(--purple); background: #f7f1ff; font-weight: 800; }
 .lock-button { display: block; margin: 0 0 1rem auto; border-color: var(--purple); }
 .theme-sun {
   --house-wall: #9a6500;
@@ -238,24 +254,37 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .scene-guide { bottom: .5rem; left: 19%; }
 .scene-symbol { bottom: .45rem; right: 19%; }
 .guide-card { display: grid; grid-template-columns: auto 1fr; align-items: center; gap: 1rem; padding: 1rem; border: 4px solid var(--yellow); border-radius: 1.5rem; background: rgb(255 255 255 / 92%); box-shadow: var(--shadow); }
-.guide-card > span { font-size: clamp(4rem, 15vw, 7rem); filter: drop-shadow(0 6px 2px rgb(36 50 74 / 18%)); }
-.guide-card h1 { margin-block: .2rem; }
-.progress-banner { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1rem; margin: 1rem 0; padding: .8rem; border-radius: 1rem; background: #352568; color: white; box-shadow: 0 6px 0 #24184b; }
+.adventure-intro { grid-template-columns: 72px minmax(0, 1fr); gap: .75rem; width: min(100%, 760px); margin: .75rem auto .5rem; padding: clamp(.75rem, 2vw, 1rem); background: linear-gradient(135deg, #fffbea, #effcff); }
+.adventure-luna { width: 72px; height: 72px; display: grid; place-items: center; font-size: 4rem; line-height: 1; filter: drop-shadow(0 6px 2px rgb(36 50 74 / 18%)); }
+.adventure-intro-copy { align-self: center; min-width: 0; }
+.adventure-intro h1 { width: auto; margin: 0 0 .45rem; font-size: clamp(1.35rem, 3vw, 1.8rem); line-height: 1.15; text-decoration: none; }
+.adventure-orientation, .adventure-ready { margin: 0; font-size: clamp(.85rem, 1.8vw, .95rem); line-height: 1.35; }
+.adventure-ready { margin-top: .25rem; }
+.progress-banner { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 1rem; max-width: 760px; margin: 1rem auto; padding: .8rem; border-radius: 1rem; background: #352568; color: white; box-shadow: 0 6px 0 #24184b; }
 .progress-banner span { color: var(--yellow); font-size: clamp(1.7rem, 8vw, 3rem); letter-spacing: .12em; }
-.journey-path { position: relative; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .8rem; margin: 1rem 0 1.5rem; }
-.journey-path::before { content: ""; position: absolute; top: 2.2rem; left: 8%; right: 8%; height: .7rem; border-radius: 1rem; background: repeating-linear-gradient(90deg, #efb54a 0 1.2rem, #fff0b9 1.2rem 2rem); }
-.journey-stop { position: relative; z-index: 1; min-width: 0; padding: .8rem; border: 3px solid #9cabc0; border-radius: 1.2rem; background: white; box-shadow: var(--shadow); }
+.journey-overview { max-width: 760px; margin: 1rem auto; }
+.journey-overview-list { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .5rem; margin: 0; padding: 0; list-style: none; }
+.journey-stop { position: relative; min-width: 0; padding: .8rem; border: 3px solid #9cabc0; border-radius: 1.2rem; background: white; box-shadow: var(--shadow); overflow-wrap: anywhere; }
+.journey-stop h3 { margin: 0 0 .35rem; font-size: clamp(1rem, 3.5vw, 1.2rem); }
+.journey-stop p { margin: 0 0 .45rem; }
 .journey-stop.is-current { border-color: #d57b08; background: #fff6cf; transform: translateY(-.25rem); }
 .journey-stop.is-completed { border-color: #31935f; background: #ecfff2; }
 .journey-stop.is-locked { background: #f2f1f7; color: #555e70; }
 .stop-number { display: grid; place-items: center; width: 3.3rem; height: 3.3rem; margin: 0 auto .6rem; border: 4px solid white; border-radius: 50%; background: var(--blue-dark); color: white; font-size: 1.5rem; box-shadow: 0 3px 0 rgb(36 50 74 / 24%); }
 .is-completed .stop-number { background: #28885c; }
-.mission-card { border: 4px solid #d57b08; border-radius: 1.5rem; padding: clamp(1rem, 4vw, 1.6rem); background: linear-gradient(145deg, #fff8d8, #fff 55%, #effcff); box-shadow: var(--shadow); }
-.mission-story { font-size: 1.15rem; }
+.mission-card { max-width: 760px; margin: .5rem auto; border: 4px solid #d57b08; border-radius: 1.5rem; padding: clamp(1rem, 4vw, 1.6rem); background: linear-gradient(145deg, #fff8d8, #fff 55%, #effcff); box-shadow: var(--shadow); }
+.active-mission-card h2 { margin: .35rem 0; font-size: clamp(1.35rem, 5vw, 2rem); }
+.mission-story, .mission-instruction { margin: .35rem 0; }
+.mission-story { font-size: 1rem; }
+.mission-question { margin: .5rem 0 0; padding: .65rem; }
 .eyebrow { width: fit-content; margin: 0; padding: .25rem .65rem; border-radius: 1rem; background: #352568; color: white; font-weight: 800; }
 .question-card, .checklist { margin-top: 1rem; padding: 1rem; border-radius: 1rem; background: rgb(255 255 255 / 85%); border: 2px solid #d8e3ef; }
 .answer-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .7rem; }
 .answer-grid button { min-height: 4rem; border-color: #7b55d9; background: #f7f1ff; }
+.answer-grid button.is-correct { border-width: 4px; border-color: #28885c; background: #e4f9eb; color: #155b37; text-decoration: underline; text-underline-offset: .15em; }
+.mission-answer-status { margin: .7rem 0 0; padding: .65rem; border-radius: .7rem; font-weight: 800; }
+.mission-answer-status.is-correct { border: 3px solid #28885c; background: #e4f9eb; color: #155b37; }
+.mission-answer-status.is-wrong { border: 3px solid #a05a18; background: #fff3c8; color: #5c3800; }
 .checklist ul { list-style: none; padding: 0; }
 .checklist li { padding: .65rem; margin: .45rem 0; border-radius: .7rem; background: #fff3c8; }
 .checklist li.done { background: #e4f9eb; color: #155b37; }
@@ -264,7 +293,11 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .badge > span { display: block; font-size: 3rem; }
 .badge.is-earned { border-color: var(--yellow); background: #fff9d9; }
 .badge.is-locked { filter: grayscale(.7); background: #f3f3f6; }
-.money-school { margin-top: 1.5rem; padding: 1rem; border-radius: 1.5rem; background: #eafaff; border: 3px solid #68bcd5; }
+.adventure-disclosure { max-width: 760px; margin: .75rem auto; border: 3px solid #d7e3f2; border-radius: 1.25rem; background: rgb(255 255 255 / 94%); box-shadow: var(--shadow); overflow: hidden; }
+.adventure-disclosure > summary { min-height: 44px; padding: .65rem 1rem; cursor: pointer; font-weight: 800; color: var(--blue-dark); }
+.adventure-disclosure[open] > summary { border-bottom: 2px solid #d7e3f2; background: #fffbea; }
+.adventure-disclosure[open] > :not(summary) { margin: 0; padding: 1rem; }
+.money-school { border-color: #68bcd5; background: #eafaff; }
 .school-topic { min-width: 0; border: 2px solid #78a8bc; border-radius: .9rem; padding: .7rem; background: white; }
 .school-topic summary { min-height: 44px; display: flex; align-items: center; font-weight: 800; color: var(--blue-dark); cursor: pointer; }
 .mission-panel { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: .8rem; margin: .8rem 0 1.2rem; padding: .8rem; border: 3px solid var(--yellow); border-radius: 1.2rem; background: #fffbea; box-shadow: var(--shadow); }
@@ -273,16 +306,15 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 .guide-mini { font-size: 2.6rem; }
 .journey-done { border-color: var(--mint); background: #edfff4; }
 
-@media (min-width: 701px) and (max-width: 767px) {
-  .child-navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-  .child-navigation button:nth-child(5) { grid-column: auto; }
+@media (min-width: 701px) {
+  .child-navigation { grid-template-columns: repeat(3, minmax(0, 1fr)); grid-auto-rows: 52px; }
+  .child-navigation button { white-space: nowrap; }
 }
 
 @media (min-width: 768px) {
-  .app-navigation { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: .65rem; }
-  .child-navigation { grid-template-columns: repeat(5, minmax(0, 1fr)); }
-  .child-navigation button:nth-child(5) { grid-column: auto; }
-  .parent-utility { margin-top: 0; }
+  .navigation-shell { grid-template-columns: minmax(0, 1fr) max-content; align-items: stretch; }
+  .parent-utility { padding: .35rem; }
+  .parent-utility button { white-space: nowrap; }
   .house-composition { padding-top: 4.7rem; }
   .house-areas {
     position: relative;
@@ -313,16 +345,23 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
   .house-area-yard-stable { grid-area: yard; border-left: 0; border-radius: 0 1rem 1rem 0; }
 }
 
-@media (max-width: 800px) {
-  .journey-path { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .journey-path::before { display: none; }
+@media (min-width: 1100px) {
+  .child-navigation { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+}
+
+@media (min-width: 768px) {
+  .journey-overview-list { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+}
+
+@media (max-width: 699px) {
+  .answer-grid { grid-template-columns: 1fr; }
 }
 
 @media (max-width: 700px) {
   .app-header { display: block; }
   .shop-category-controls { grid-template-columns: 1fr; }
   .affordability-filter { width: 100%; }
-  .money-actions { grid-template-columns: 1fr; }
+  .money-actions, .care-needs, .care-actions { grid-template-columns: 1fr; }
   .inline-form { grid-template-columns: 1fr; align-items: stretch; }
   .request { display: block; }
   .request div button { flex: 1 1 10rem; }
@@ -332,6 +371,10 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
 
 @media (max-width: 360px) {
   :root { font-size: 16px; }
+  .adventure-intro { grid-template-columns: 72px minmax(0, 1fr); gap: .5rem; }
+  .adventure-intro-copy { grid-column: 1 / -1; }
+  .adventure-luna { grid-column: 1; }
+  .adventure-intro h1 { margin-bottom: .5rem; }
   main { width: min(100% - 1rem, 1180px); }
   .app-header, .app-navigation, .feedback { padding-left: .5rem; padding-right: .5rem; }
 }
@@ -350,7 +393,8 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
   button { transition: background-color .15s ease, transform .15s ease, box-shadow .15s ease; }
   button:active:not(:disabled) { transform: scale(.97); }
   .logo { animation: mascot-float 2.8s ease-in-out infinite; }
-  .balance-card, .catalog-card, .panel, .house-slot, .house-area { animation: card-arrive .42s ease-out both; }
+  .balance-card, .catalog-card, .panel, .house-slot, .house-area, .local-result { animation: card-arrive .42s ease-out both; }
+  .answer-grid button.is-correct { animation: correct-choice .45s ease-out; }
   .card-grid > :nth-child(2), .house-grid > :nth-child(2), .house-areas > :nth-child(2) { animation-delay: .06s; }
   .card-grid > :nth-child(3), .house-grid > :nth-child(3), .house-areas > :nth-child(3) { animation-delay: .12s; }
   .card-grid > :nth-child(4), .house-grid > :nth-child(4), .house-areas > :nth-child(4) { animation-delay: .18s; }
@@ -359,16 +403,16 @@ input, select { width: 100%; border: 2px solid #8295ac; border-radius: .65rem; p
   .feedback.has-feedback > span { display: inline-block; animation: celebrate .45s ease-out; }
   .scene-guide { animation: pet-bob 2.4s ease-in-out infinite; }
   .scene-cloud { animation: mascot-float 3.4s ease-in-out infinite; }
-  .journey-stop.is-current { animation: nav-pop .55s ease-out; }
-  .badge.is-earned > span { animation: celebrate .5s ease-out; }
+  .journey-stop.is-current { animation: nav-pop .45s ease-out; }
+  .badge.is-earned > span { animation: celebrate .45s ease-out; }
   .feedback.reaction-correct > span { animation-name: correct-choice; }
   .feedback.reaction-step > span { animation-name: action-step; }
   .feedback.reaction-star > span { animation-name: star-award; }
-  .feedback.reaction-complete > span { animation-name: journey-finale; animation-duration: .75s; }
+  .feedback.reaction-complete > span { animation-name: journey-finale; animation-duration: .45s; }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  button, .logo, .balance-card, .catalog-card, .panel, .house-slot, .house-area, .catalog-emoji, .decoration, .parent-decoration, nav button.active, .feedback.has-feedback > span, .scene-guide, .scene-cloud, .journey-stop.is-current, .badge.is-earned > span {
+  button, .logo, .balance-card, .catalog-card, .panel, .house-slot, .house-area, .local-result, .answer-grid button.is-correct, .catalog-emoji, .decoration, .parent-decoration, nav button.active, .feedback.has-feedback > span, .scene-guide, .scene-cloud, .journey-stop.is-current, .badge.is-earned > span {
     animation: none !important;
     transition: none !important;
   }

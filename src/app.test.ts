@@ -2,12 +2,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { readFileSync } from "node:fs";
 import { webcrypto } from "node:crypto";
-import { createApp, messageForCode, ACTIVITY_CODES, LOAD_CODES, RESULT_CODES, ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, activityMessage, adventureMessageForCode } from "./main";
-import { ADVENTURE_MESSAGES, ADVENTURE_PRACTICE, CHORES, EARNINGS_CHALLENGE, HOUSE_AREA_CONTENT, HR, ITEMS, PARENT_ACCESS_MESSAGES, PETS, THEMES, houseAreaContent } from "./content/hr";
+import { createApp, registerServiceWorker, messageForCode, ACTIVITY_CODES, LOAD_CODES, RESULT_CODES, ADVENTURE_LOAD_CODES, ADVENTURE_RESULT_CODES, activityMessage, adventureMessageForCode } from "./main";
+import { ADVENTURE_MESSAGES, ADVENTURE_MISSIONS, ADVENTURE_PRACTICE, CHORES, EARNINGS_CHALLENGE, HOUSE_AREA_CONTENT, HR, ITEMS, PARENT_ACCESS_MESSAGES, PETS, THEMES, houseAreaContent } from "./content/hr";
 import { STORAGE_KEY, initialState, type StorageLike } from "./game/store";
 import { PARENT_ACCESS_CODES, PARENT_ACCESS_KEY, setupParentAccess } from "./game/parent-access";
 import { ADVENTURE_STORAGE_KEY, initialAdventureState } from "./game/adventure";
 import { HOUSE_AREAS } from "./game/house";
+import { PROGRESSION_KEY } from "./game/progression";
+import { DAILY_QUESTS } from "./game/quests";
 
 class MemoryStorage implements StorageLike {
   data = new Map<string, string>();
@@ -61,6 +63,15 @@ async function submitPin(formSelector: string, pin: string): Promise<void> {
   form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
   const started = Date.now();
   while (root.querySelector(formSelector) && Date.now() - started < 3000) await new Promise((resolve) => setTimeout(resolve, 10));
+}
+
+async function submitParentSetup(pin: string, confirmation: string): Promise<void> {
+  const form = root.querySelector<HTMLFormElement>('[data-form="parent-setup"]');
+  expect(form).not.toBeNull();
+  (form!.elements.namedItem("pin") as HTMLInputElement).value = pin;
+  (form!.elements.namedItem("confirmation") as HTMLInputElement).value = confirmation;
+  form!.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+  await new Promise((resolve) => setTimeout(resolve, 20));
 }
 
 async function provisionParentAccess(pin = "246810"): Promise<void> {
@@ -259,7 +270,7 @@ describe("integrated Croatian application", () => {
     await submitPin('[data-form="parent-unlock"]', "246810");
     click('[data-action="approve-chore"][data-id="1"]');
     expect([...root.querySelectorAll("[data-parent-summary-value]")].map(({ textContent }) => textContent)).toEqual([
-      "145 zlatnika", "5 zlatnika", "0 zlatnika", "0", "1 od 4", "1 od 8", "1",
+      "145 zlatnika", "5 zlatnika", "0 zlatnika", "0", "1 od 4", "1 od 12", "1",
     ]);
     expect(root.querySelector("[data-parent-recent]")?.textContent).toContain("Za posao Složi školski pribor zarađeno je 4 zlatnika.");
     expect(visited).toEqual(["adventure", "money", "chores", "shop", "house", "parent"]);
@@ -369,7 +380,8 @@ describe("integrated Croatian application", () => {
       expect(action?.closest("article")?.textContent).toContain(chore.name);
       expect(action?.closest("article")?.textContent).toContain(HR.rewardValue(chore.reward));
       click(selector);
-      click(selector);
+      expect(root.querySelector<HTMLButtonElement>(selector)).toBeNull();
+      expect(root.querySelector<HTMLButtonElement>(`[data-chore="${chore.id}"] button`)?.disabled).toBe(true);
       expect(app.getState().choreRequests.filter(({ choreId, status }) => choreId === chore.id && status === "pending")).toHaveLength(1);
     }
     expect(app.getState().wallet).toBe(0);
@@ -394,7 +406,7 @@ describe("integrated Croatian application", () => {
     const expectedActivities = addedChores.map(({ name, reward }) => ({ code: "chore-reward-paid" as const, name, amount: reward }));
     expect(app.getState().wallet).toBe(addedChores.reduce((total, { reward }) => total + reward, 0));
     expect(app.getState().activities).toEqual(expectedActivities);
-    expect(app.getState().choreRequests.slice(5).every(({ status }) => status === "approved")).toBe(true);
+    expect(app.getState().choreRequests.slice(addedChores.length).every(({ status }) => status === "approved")).toBe(true);
 
     const settledState = structuredClone(app.getState());
     for (let requestId = addedChores.length + 1; requestId <= addedChores.length * 2; requestId += 1) {
@@ -439,7 +451,8 @@ describe("integrated Croatian application", () => {
     const recordsBefore = [...storage.data.entries()];
 
     click('[data-nav="money"]');
-    expect(root.querySelector(".balances")?.nextElementSibling?.classList.contains("goal-planner")).toBe(true);
+    expect(root.querySelector(".balances")?.nextElementSibling?.classList.contains("saving-actions")).toBe(true);
+    expect(root.querySelector(".saving-actions")?.nextElementSibling?.classList.contains("goal-planner")).toBe(true);
     expect(root.querySelector("#goal-heading")?.textContent).toBe(HR.goalHeading);
     const options = [...root.querySelectorAll<HTMLOptionElement>('#goal-chore option')];
     expect(options.map(({ value, textContent }) => ({ value, label: textContent }))).toEqual(
@@ -517,7 +530,8 @@ describe("integrated Croatian application", () => {
     expect(EARNINGS_CHALLENGE).toEqual(expectedComparisons.map(([correct, wrong]) => ({ choices: [correct.id, wrong.id], correctId: correct.id })));
 
     click('[data-nav="chores"]');
-    expect(root.querySelector(".earnings-challenge")?.nextElementSibling?.classList.contains("card-grid")).toBe(true);
+    expect(root.querySelector<HTMLDetailsElement>(".earnings-challenge-disclosure")?.open).toBe(false);
+    expect(root.querySelector(".card-grid")?.nextElementSibling?.classList.contains("earnings-challenge-disclosure")).toBe(true);
     expect(root.querySelector("#earnings-challenge-heading")?.textContent).toBe(HR.earningsChallengeHeading);
     expect(root.querySelector("#earnings-challenge-intro")?.textContent).toBe(HR.earningsChallengeIntro);
     expect(root.querySelector("#earnings-challenge-question")?.textContent).toBe(HR.earningsChallengeQuestion);
@@ -672,7 +686,7 @@ describe("integrated Croatian application", () => {
 
     click('[data-action="buy-pet"][data-id="bird"]');
     expect(app.getState()).toMatchObject({ wallet: 15, savings: 17, debt: 6 });
-    expect(visibleIds()).toEqual(["bowl", "toy", "plant", "pet-brush"]);
+    expect(visibleIds()).toEqual(ITEMS.filter(({ price }) => price <= 15).map(({ id }) => id));
     expect(root.querySelector("[data-shop-inventory]")?.textContent).toContain("Ribica");
     expect(root.querySelector("[data-shop-inventory]")?.textContent).toContain("Ptičica");
 
@@ -920,9 +934,9 @@ describe("integrated Croatian application", () => {
     expect(areas[3].textContent).toContain(PETS[2].name);
     expect(areas[3].textContent).toContain(PETS[3].name);
     for (const pet of PETS) expect(root.textContent).toContain(pet.name);
-    expect(root.querySelectorAll('[data-form="place-pet"]')).toHaveLength(4);
+    expect(root.querySelectorAll('[data-form="place-pet"]')).toHaveLength(PETS.length - 4);
     expect(root.querySelector('[data-house-full="pets"]')?.textContent).toBe(HR.petHouseFullGuidance);
-    expect(root.querySelectorAll('[data-form="place-pet"] button:disabled')).toHaveLength(4);
+    expect(root.querySelectorAll('[data-form="place-pet"] button:disabled')).toHaveLength(PETS.length - 4);
 
     const playerChannels = [
       root.textContent ?? "",
@@ -1198,7 +1212,7 @@ describe("integrated Croatian application", () => {
       HR.parentItemsSummary,
     ]);
     expect([...overview.querySelectorAll("[data-parent-summary-value]")].map(({ textContent }) => textContent)).toEqual([
-      "44 zlatnika", "12 zlatnika", "1 zlatnik", "1", "2 od 4", "2 od 8", "5",
+      "44 zlatnika", "12 zlatnika", "1 zlatnik", "1", "2 od 4", "2 od 12", "5",
     ]);
     const recent = [...overview.querySelectorAll<HTMLLIElement>("[data-parent-recent] li")].map(({ textContent }) => textContent);
     expect(recent).toEqual([
@@ -1247,14 +1261,14 @@ describe("integrated Croatian application", () => {
     click('[data-nav="parent"]');
     await submitPin('[data-form="parent-unlock"]', "246810");
     const summaryValues = () => [...root.querySelectorAll<HTMLElement>("[data-parent-summary-value]")].map(({ textContent }) => textContent);
-    expect(summaryValues()).toEqual(["150 zlatnika", "0 zlatnika", "0 zlatnika", "1", "1 od 4", "0 od 8", "0"]);
+    expect(summaryValues()).toEqual(["150 zlatnika", "0 zlatnika", "0 zlatnika", "1", "1 od 4", "0 od 12", "0"]);
 
     submit('[data-form="grant"]', 20);
     expect(summaryValues()[0]).toBe("170 zlatnika");
     expect(root.querySelector("[data-parent-recent] li")?.textContent).toBe("Roditelj je dodao 20 zlatnika.");
 
     click('[data-action="approve-chore"]');
-    expect(summaryValues()).toEqual(["175 zlatnika", "0 zlatnika", "0 zlatnika", "0", "2 od 4", "0 od 8", "0"]);
+    expect(summaryValues()).toEqual(["175 zlatnika", "0 zlatnika", "0 zlatnika", "0", "2 od 4", "0 od 12", "0"]);
     expect(app.getAdventureState()).toMatchObject({ activeMission: "purchase", completedMissions: ["saving", "earning"], stars: 2 });
     expect([...root.querySelectorAll("[data-parent-recent] li")].map(({ textContent }) => textContent)).toEqual([
       "Za posao Posloži krevet zarađeno je 5 zlatnika.",
@@ -1267,7 +1281,7 @@ describe("integrated Croatian application", () => {
     click('[data-nav="parent"]');
     expectParentProtectedContentAbsent();
     await submitPin('[data-form="parent-unlock"]', "246810");
-    expect(summaryValues()).toEqual(["135 zlatnika", "0 zlatnika", "0 zlatnika", "0", "2 od 4", "1 od 8", "1"]);
+    expect(summaryValues()).toEqual(["135 zlatnika", "0 zlatnika", "0 zlatnika", "0", "2 od 4", "1 od 12", "1"]);
     expect([...root.querySelectorAll("[data-parent-recent] li")].map(({ textContent }) => textContent)).toEqual([
       "Kupljena je stvar Zdjelica za 10 zlatnika.",
       "Kupljen je ljubimac Ribica za 30 zlatnika.",
@@ -1317,7 +1331,7 @@ describe("integrated Croatian application", () => {
     await settleDerivation(newRequest, verifier);
     expectParentProtectedContentPresent();
     expect([...root.querySelectorAll("[data-parent-summary-value]")].map(({ textContent }) => textContent)).toEqual([
-      "27 zlatnika", "0 zlatnika", "0 zlatnika", "1", "0 od 4", "0 od 8", "0",
+      "27 zlatnika", "0 zlatnika", "0 zlatnika", "1", "0 od 4", "0 od 12", "0",
     ]);
     const stateBeforeStale = structuredClone(app.getState());
     const adventureBeforeStale = structuredClone(app.getAdventureState());
@@ -1540,33 +1554,36 @@ describe("integrated Croatian application", () => {
     expect(root.textContent).not.toContain("111111");
   });
 
-  it("keeps a fresh profile unprovisioned and rejects forged enrollment and protected actions", () => {
+  it("enrolls a fresh local guardian, rejects invalid values, stores no raw PIN, and relocks", async () => {
     const app = createApp(root, storage);
     click('[data-nav="parent"]');
     expect(root.textContent).toContain(HR.parentUnprovisioned);
-    expect(root.querySelector('[data-form="parent-setup"]')).toBeNull();
-    expect(root.querySelector('[data-form="parent-unlock"]')).toBeNull();
-    expect(root.querySelector('[data-form="grant"]')).toBeNull();
+    expect(root.querySelector('[data-form="parent-setup"]')).not.toBeNull();
+    expectParentProtectedContentAbsent();
+
+    await submitParentSetup("12345", "12345");
+    expect(root.textContent).toContain(PARENT_ACCESS_MESSAGES["invalid-format"]);
+    expect(storage.getItem(PARENT_ACCESS_KEY)).toBeNull();
+    await submitParentSetup("123456", "654321");
+    expect(root.textContent).toContain(PARENT_ACCESS_MESSAGES.mismatch);
+    expect(storage.getItem(PARENT_ACCESS_KEY)).toBeNull();
+    await submitParentSetup("123456", "123456");
+    expect(root.querySelector("[data-parent-overview]")).not.toBeNull();
+    expect(root.querySelector('[data-form="grant"]')).not.toBeNull();
     expect(root.querySelector('[data-action="approve-chore"]')).toBeNull();
     expect(root.querySelector('[data-action="return-chore"]')).toBeNull();
+    const raw = storage.getItem(PARENT_ACCESS_KEY)!;
+    expect(raw).not.toContain("123456");
+    expect(raw).not.toContain("unlocked");
 
-    const stateBefore = structuredClone(app.getState());
-    const forged = [
-      '<form data-form="parent-setup"><input name="pin" value="123456"><input name="confirmation" value="123456"></form>',
-      '<form data-form="grant"><input name="amount" value="50"></form>',
-      '<button data-action="approve-chore" data-id="1"></button>',
-      '<button data-action="return-chore" data-id="1"></button>',
-    ];
-    for (const markup of forged) {
-      root.insertAdjacentHTML("beforeend", markup);
-      const injected = root.lastElementChild!;
-      injected.dispatchEvent(new Event(injected.tagName === "FORM" ? "submit" : "click", { bubbles: true, cancelable: true }));
-      injected.remove();
-      expect(app.getState()).toEqual(stateBefore);
-      expect(storage.getItem(PARENT_ACCESS_KEY)).toBeNull();
-      expect(storage.getItem(STORAGE_KEY)).toBeNull();
-      expect(storage.getItem(ADVENTURE_STORAGE_KEY)).toBeNull();
-    }
+    click('[data-nav="money"]');
+    click('[data-nav="parent"]');
+    expect(root.querySelector('[data-form="parent-unlock"]')).not.toBeNull();
+    expectParentProtectedContentAbsent();
+    await submitPin('[data-form="parent-unlock"]', "123456");
+    click('[data-action="lock-parent"]');
+    expectParentProtectedContentAbsent();
+    expect(app.getState()).toEqual(initialState());
   });
 
   it("fails closed outside a secure Web Crypto context and keeps parent controls absent", () => {
@@ -1654,20 +1671,257 @@ describe("integrated Croatian application", () => {
     expect(adventureMessageForCode("unexpected-english-error")).toBe(HR.genericError);
   });
 
-  it("renders five Croatian child destinations separately from the parent utility", () => {
+  it("covers the mission-first Luna hierarchy, textual progress, and closed learning disclosures without persistence", async () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...initialState(), wallet: 17 }));
+    storage.setItem(ADVENTURE_STORAGE_KEY, JSON.stringify(initialAdventureState()));
+    await provisionParentAccess();
+    const initialRecords = [STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key));
+    createApp(root, storage);
+
+    expect(root.querySelector("#adventure-heading")?.textContent).toBe("Pustolovina sa šapicama");
+    expect(root.querySelector(".guide-card")?.textContent).toContain("Luna ti pokazuje sljedeći korak.");
+    expect(root.querySelector(".guide-card")?.textContent).toContain("Nova pustolovina je spremna.");
+    const luna = root.querySelector<HTMLElement>(".adventure-luna");
+    expect(luna?.getAttribute("aria-hidden")).toBe("true");
+    expect(luna?.getAttribute("style")).toContain("width:72px");
+    const ordered = ["[data-active-mission]", ".progress-banner", ".journey-overview", ".adventure-disclosure"]
+      .map((selector) => root.querySelector(selector));
+    expect(ordered.every((element, index) => element && (index === 0 || ordered[index - 1]!.compareDocumentPosition(element) & Node.DOCUMENT_POSITION_FOLLOWING))).toBe(true);
+    const stops = [...root.querySelectorAll<HTMLElement>("[data-mission-stop]")];
+    expect(stops.map(({ dataset }) => dataset.missionStop)).toEqual(["saving", "earning", "purchase", "loan"]);
+    expect(stops.map((stop) => stop.querySelector("strong")?.textContent)).toEqual(["Trenutačna", "Zaključano", "Zaključano", "Zaključano"]);
+    expect(stops[0].textContent).toContain(ADVENTURE_MISSIONS.saving.story);
+    for (const stop of stops.slice(1)) expect(stop.textContent).not.toContain(ADVENTURE_MISSIONS[stop.dataset.missionStop as keyof typeof ADVENTURE_MISSIONS].story);
+    expect(root.querySelector(".progress-banner")?.textContent).toContain("0 od 4 zvjezdice");
+    const disclosures = [...root.querySelectorAll<HTMLDetailsElement>(".adventure-disclosure")];
+    expect(disclosures).toHaveLength(3);
+    expect(disclosures.every((disclosure) => disclosure instanceof HTMLDetailsElement && !disclosure.open)).toBe(true);
+    expect(disclosures.map((disclosure) => disclosure.querySelector("summary")?.textContent?.trim())).toEqual(["Vježbaj pravila", HR.badgesHeading, "Mala škola novca"]);
+    for (const disclosure of disclosures) {
+      disclosure.open = true;
+      expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(initialRecords);
+      disclosure.open = false;
+      expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(initialRecords);
+    }
+
+    const later = {
+      version: 1,
+      activeMission: "earning" as const,
+      correctAnswers: ["saving"] as const,
+      evidence: { saving: { amount: 5, eventSequence: 1 } },
+      completedMissions: ["saving"] as const,
+      stars: 1,
+      badges: ["piggy-bank"] as const,
+    };
+    storage.setItem(ADVENTURE_STORAGE_KEY, JSON.stringify(later));
+    root.replaceChildren();
+    createApp(root, storage);
+    expect(root.querySelector("[data-mission-stop=\"saving\"]")?.textContent).toContain("Dovršeno");
+    expect(root.querySelector("[data-mission-stop=\"earning\"]")?.textContent).toContain("Trenutačna");
+    expect(root.querySelector("[data-mission-stop=\"purchase\"]")?.textContent).toContain("Zaključano");
+    expect(root.querySelector("[data-mission-stop=\"purchase\"]")?.textContent).not.toContain(ADVENTURE_MISSIONS.purchase.story);
+    expect(root.querySelector(".progress-banner")?.textContent).toContain("1 od 4 zvjezdice");
+  });
+
+  it("restores focus and one nearby Croatian result for redesigned child actions", () => {
+    storage.setItem(STORAGE_KEY, JSON.stringify({ ...initialState(), wallet: 100 }));
+    const app = createApp(root, storage);
+    const wrong = '[data-action="answer-adventure"][data-answer="saving-disappears"]';
+    click(wrong);
+    expect(root.querySelector("[data-mission-wrong]")).toBeNull();
+    expect(root.querySelector(".mission-answer-status.is-wrong")?.textContent).toContain("Pokušaj ponovno");
+    expect(root.querySelector<HTMLButtonElement>(wrong)?.disabled).toBe(false);
+    expect(document.activeElement).toBe(root.querySelector(wrong));
+    click('[data-action="answer-adventure"][data-answer="saving-later"]');
+    const correct = root.querySelector<HTMLButtonElement>('[data-action="answer-adventure"][data-answer="saving-later"]')!;
+    expect(correct.textContent).toContain("Točno");
+    expect(correct.getAttribute("aria-describedby")).toBe("mission-correct-saving");
+    expect(root.querySelector<HTMLButtonElement>('[data-action="answer-adventure"][data-answer="saving-disappears"]')?.disabled).toBe(true);
+    expect(document.activeElement).toBe(root.querySelector("#mission-checklist-saving"));
+
+    click('[data-nav="money"]');
+    expect(document.activeElement).toBe(root.querySelector("#view-money h1"));
+    const recordsBeforePreview = [STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key));
+    for (const [action, value, text] of [["borrow", "10", "Ako posudiš 10: Novčanik +10, Dug +10."], ["repay", "10", "Ako vratiš 10: Novčanik −10, Dug −10."]] as const) {
+      const input = root.querySelector<HTMLInputElement>(`[data-form="${action}"] input[name="amount"]`)!;
+      input.value = value;
+      input.dispatchEvent(new Event("input", { bubbles: true }));
+      expect(root.querySelector(`[data-loan-preview="${action}"]`)?.textContent).toBe(text);
+    }
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(recordsBeforePreview);
+    submit('[data-form="save"]', 5);
+    expect(root.querySelectorAll("[data-local-result]")).toHaveLength(1);
+    expect(root.querySelector("[data-local-result]")?.closest(".local-result")?.contains(document.activeElement)).toBe(true);
+    submit('[data-form="borrow"]', 0);
+    expect(root.querySelectorAll("[data-local-result]")).toHaveLength(1);
+    expect(document.activeElement).toBe(root.querySelector('[data-form="borrow"] input[name="amount"]'));
+
+    click('[data-nav="chores"]');
+    click('[data-action="request-chore"][data-id="make-bed"]');
+    expect(root.querySelectorAll("[data-local-result]")).toHaveLength(1);
+    expect(document.activeElement).toBe(root.querySelector("[data-local-result]"));
+    expect(root.querySelector<HTMLButtonElement>('[data-chore="make-bed"] button')?.disabled).toBe(true);
+    expect(root.querySelector('[data-chore-state="make-bed"]')?.textContent).toContain("Čeka potvrdu");
+
+    click('[data-nav="shop"]');
+    expect(root.querySelector("[data-shop-wallet]")?.textContent).toContain("U novčaniku imaš: 95 zlatnika.");
+    expect(root.querySelectorAll("[data-shop-result-count]")).toHaveLength(1);
+    expect(root.querySelector("[data-shop-result-count]")?.textContent).toContain(`Prikazano ${PETS.length + ITEMS.length} ponuda.`);
+    expect(root.querySelector('[data-shop-entry="cow"] .reason')?.textContent).toBe("Treba ti još 15 zlatnika");
+    click('[data-action="set-shop-category"][data-category="pets"]');
+    expect(root.querySelectorAll("[data-shop-result-count]")).toHaveLength(1);
+    expect(root.querySelector("[data-shop-result-count]")?.textContent).toBe(`Prikazano ${PETS.length} ponuda.`);
+    click('[data-action="toggle-shop-affordability"]');
+    expect(root.querySelectorAll("[data-shop-result-count]")).toHaveLength(1);
+    expect(root.querySelector("[data-shop-result-count]")?.textContent).toBe(`Prikazano ${PETS.filter(({ price }) => price <= 95).length} ponuda.`);
+    click('[data-action="buy-pet"][data-id="bird"]');
+    expect(root.querySelector("[data-shop-wallet]")?.textContent).toContain("U novčaniku imaš: 55 zlatnika.");
+    expect(root.querySelectorAll("[data-shop-result-count]")).toHaveLength(1);
+    expect(root.querySelector("[data-shop-result-count]")?.textContent).toBe(`Prikazano ${PETS.filter(({ id, price }) => id !== "bird" && price <= 55).length} ponuda.`);
+    click('[data-action="toggle-shop-affordability"]');
+    click('[data-action="set-shop-category"][data-category="all"]');
+    click('[data-action="buy-item"][data-id="bowl"]');
+    expect(root.querySelector("[data-shop-wallet]")?.textContent).toContain("U novčaniku imaš: 45 zlatnika.");
+    expect(root.querySelectorAll("[data-local-result]")).toHaveLength(1);
+    expect(document.activeElement).toBe(root.querySelector("[data-local-result]"));
+
+    click('[data-nav="house"]');
+    expect(root.querySelector(".placement-steps")?.textContent).toContain("1. Odaberi mjesto. 2. Odaberi Postavi.");
+    const form = root.querySelector<HTMLFormElement>('[data-form="place-item"][data-id="bowl"]')!;
+    expect(form.querySelectorAll("select")).toHaveLength(1);
+    expect(form.querySelectorAll('input[type="radio"], input[type="checkbox"]')).toHaveLength(0);
+    (form.elements.namedItem("slot") as HTMLSelectElement).value = "item-1";
+    form.dispatchEvent(new Event("submit", { bubbles: true, cancelable: true }));
+    expect(root.querySelectorAll("[data-local-result]")).toHaveLength(1);
+    expect(root.querySelector("[data-local-result]")?.textContent).toContain("Zdjelica. Postavljeno u: Dnevna soba.");
+    expect(document.activeElement).toBe(root.querySelector("[data-local-result]"));
+    expect(app.getState().itemPlacements["item-1"]).toBe("bowl");
+  });
+
+  it("reloads legacy V1 game, adventure, and parent records byte-for-byte while parent controls stay fail-closed", async () => {
+    const game = { ...initialState(), wallet: 19, choreRequests: [{ id: 1, choreId: "make-bed", status: "pending" as const }], nextId: 2, activities: [{ code: "coins-granted" as const, amount: 19 }] };
+    const adventure = { version: 1, activeMission: "earning" as const, correctAnswers: ["saving"] as const, evidence: { saving: { amount: 5, eventSequence: 1 } }, completedMissions: ["saving"] as const, stars: 1, badges: ["piggy-bank"] as const };
+    storage.setItem(STORAGE_KEY, JSON.stringify(game));
+    storage.setItem(ADVENTURE_STORAGE_KEY, JSON.stringify(adventure));
+    await provisionParentAccess();
+    const bytes = [STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key));
+    let app = createApp(root, storage);
+    click('[data-nav="parent"]');
+    expectParentProtectedContentAbsent();
+    app.destroy();
+    app = createApp(root, storage);
+    expect(app.getState()).toEqual(game);
+    expect(app.getAdventureState()).toEqual(adventure);
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(bytes);
+    click('[data-nav="parent"]');
+    expectParentProtectedContentAbsent();
+    await submitPin('[data-form="parent-unlock"]', "246810");
+    expectParentProtectedContentPresent();
+    click('[data-action="lock-parent"]');
+    expectParentProtectedContentAbsent();
+    expect([STORAGE_KEY, ADVENTURE_STORAGE_KEY, PARENT_ACCESS_KEY].map((key) => storage.getItem(key))).toEqual(bytes);
+  });
+
+  it("persists one accessible Croatian care-to-quest loop, rejects cooldown, and preserves legacy records", () => {
+    const game = { ...initialState(), ownedPets: [{ id: 1, catalogId: "cat" }], nextId: 2 };
+    storage.setItem(STORAGE_KEY, JSON.stringify(game));
+    const gameBytes = storage.getItem(STORAGE_KEY);
+    const app = createApp(root, storage);
+    click('[data-nav="care"]');
+    expect(root.textContent).toContain(HR.careHeading);
+    expect(root.textContent).toContain("Mačka");
+    expect(root.querySelectorAll(".care-needs meter")).toHaveLength(3);
+    const quest = DAILY_QUESTS.find(({ id }) => id === app.getProgressionState().currentQuest?.id)!;
+    const action = root.querySelector<HTMLButtonElement>(`[data-action="care-pet"][data-care-action="${quest.actionId}"]`)!;
+    expect(action.getAttribute("aria-label")).toContain("Mačka");
+    action.click();
+    expect(document.activeElement).toBe(root.querySelector("#care-result"));
+    expect(root.textContent).toContain(HR.careQuestDone);
+    expect(app.getProgressionState().totalXp).toBe(20);
+    const progressionBytes = storage.getItem(PROGRESSION_KEY);
+    expect(progressionBytes).not.toBeNull();
+    expect(storage.getItem(STORAGE_KEY)).toBe(gameBytes);
+    expect(storage.getItem(ADVENTURE_STORAGE_KEY)).toBeNull();
+    expect(storage.getItem(PARENT_ACCESS_KEY)).toBeNull();
+
+    click(`[data-action="care-pet"][data-care-action="${quest.actionId}"]`);
+    expect(root.textContent).toContain("Pričekaj četiri sata");
+    expect(app.getProgressionState().totalXp).toBe(20);
+    expect(storage.getItem(PROGRESSION_KEY)).toBe(progressionBytes);
+    app.destroy();
+
+    const reloaded = createApp(root, storage);
+    click('[data-nav="care"]');
+    expect(reloaded.getProgressionState().totalXp).toBe(20);
+    expect(root.textContent).toContain(HR.careQuestDone);
+  });
+
+  it("shows a failed care write without reward and safely reuses the uncertain event on retry", () => {
+    const game = { ...initialState(), ownedPets: [{ id: 1, catalogId: "cat" }], nextId: 2 };
+    storage.setItem(STORAGE_KEY, JSON.stringify(game));
+    const app = createApp(root, storage);
+    click('[data-nav="care"]');
+    const quest = DAILY_QUESTS.find(({ id }) => id === app.getProgressionState().currentQuest?.id)!;
+    const originalSetItem = storage.setItem.bind(storage);
+    storage.setItem = (key: string, value: string) => {
+      if (key === PROGRESSION_KEY) throw new Error("progression unavailable");
+      originalSetItem(key, value);
+    };
+    click(`[data-action="care-pet"][data-care-action="${quest.actionId}"]`);
+    expect(root.textContent).toContain("nije moguće sigurno spremiti");
+    expect(app.getProgressionState().totalXp).toBe(0);
+    expect(storage.getItem(PROGRESSION_KEY)).toBeNull();
+
+    storage.setItem = originalSetItem;
+    click(`[data-action="care-pet"][data-care-action="${quest.actionId}"]`);
+    expect(app.getProgressionState().totalXp).toBe(20);
+    expect(JSON.parse(storage.getItem(PROGRESSION_KEY)!).receipts).toHaveLength(1);
+  });
+
+  it("shows the no-pet next step without borrowing or purchase pressure", () => {
+    createApp(root, storage);
+    click('[data-nav="care"]');
+    expect(root.textContent).toContain(HR.careNoPet);
+    expect(root.querySelector('[data-nav="shop"]')).not.toBeNull();
+    expect(root.textContent?.toLocaleLowerCase("hr")).not.toContain("automatski posudi");
+    expect(storage.getItem(PROGRESSION_KEY)).toBeNull();
+  });
+
+  it("declares same-origin install metadata and a bounded offline worker registration", async () => {
+    const manifest = JSON.parse(readFileSync(`${process.cwd()}/public/manifest.webmanifest`, "utf8"));
+    expect(manifest).toMatchObject({ name: "Moja trgovina ljubimaca", short_name: "Moji ljubimci", lang: "hr", start_url: "/", scope: "/", display: "standalone", theme_color: "#214e45", background_color: "#fffaf0" });
+    expect(manifest.icons).toEqual([{ src: "/icon.svg", sizes: "any", type: "image/svg+xml", purpose: "any maskable" }]);
+    const html = readFileSync(`${process.cwd()}/index.html`, "utf8");
+    expect(html.match(/rel="manifest"/g)).toHaveLength(1);
+    expect(html).toContain('href="/manifest.webmanifest"');
+    const worker = readFileSync(`${process.cwd()}/public/service-worker.js`, "utf8");
+    expect(worker).toContain('const CACHE_NAME = "moja-trgovina-ljubimaca-shell-v1"');
+    expect(worker).toContain("url.origin !== self.location.origin");
+    for (const forbidden of ["localStorage", "croatian-money-pet-game:v1", "analytics", "pushManager", 'addEventListener("sync"']) expect(worker).not.toContain(forbidden);
+
+    const registrations: Array<[string, RegistrationOptions | undefined]> = [];
+    Object.defineProperty(navigator, "serviceWorker", { configurable: true, value: { register: async (url: string, options?: RegistrationOptions) => { registrations.push([url, options]); return {} as ServiceWorkerRegistration; } } });
+    expect(await registerServiceWorker("https://igra.example/")).toBe("registered");
+    expect(registrations).toEqual([["/service-worker.js", { scope: "/" }]]);
+    Object.defineProperty(globalThis, "isSecureContext", { value: false, configurable: true });
+    expect(await registerServiceWorker("http://example.test/")).toBe("insecure");
+  });
+
+  it("renders six Croatian child destinations separately from the parent utility", () => {
     createApp(root, storage);
     const childNavigation = root.querySelector<HTMLElement>("nav.child-navigation");
     expect(childNavigation).not.toBeNull();
     expect(childNavigation?.getAttribute("aria-label")).toBe(HR.navigationLabel);
     const expectedChildren = [
       ["adventure", "🗺️", HR.navAdventure],
+      ["care", "🐾", HR.navCare],
       ["money", "🐷", HR.navMoney],
       ["chores", "🌻", HR.navChores],
       ["shop", "🎪", HR.navShop],
       ["house", "🏡", HR.navHouse],
     ] as const;
     const childButtons = [...childNavigation!.querySelectorAll<HTMLButtonElement>("button[data-nav]")];
-    expect(childButtons).toHaveLength(5);
+    expect(childButtons).toHaveLength(6);
     expect(childButtons.map(({ dataset }) => dataset.nav)).toEqual(expectedChildren.map(([id]) => id));
     expectedChildren.forEach(([id, icon, label], index) => {
       const button = childButtons[index];
@@ -1688,12 +1942,33 @@ describe("integrated Croatian application", () => {
     expect(parentButton?.textContent).toContain(HR.navParent);
     expect(root.querySelector(".fictional-notice")?.textContent).toBe("Ovo je igra s izmišljenim zlatnicima — bez pravog novca.");
 
-    click('[data-nav="money"]');
-    expect(root.querySelector('[data-nav="money"]')?.getAttribute("aria-current")).toBe("page");
-    expect(root.querySelector('[data-nav="adventure"]')?.getAttribute("aria-current")).toBeNull();
+    expect(parentUtility?.parentElement?.classList.contains("navigation-shell")).toBe(true);
+    expect(childNavigation?.parentElement).toBe(parentUtility?.parentElement);
+    for (const [id] of expectedChildren) {
+      click(`[data-nav="${id}"]`);
+      const currentNavigation = root.querySelector<HTMLElement>("nav.child-navigation");
+      expect(currentNavigation?.querySelector(`[data-nav="${id}"]`)?.getAttribute("aria-current")).toBe("page");
+      expect(currentNavigation?.querySelectorAll('[aria-current="page"]')).toHaveLength(1);
+    }
     click('[data-nav="parent"]');
-    expect(root.querySelector('[data-nav="parent"]')?.getAttribute("aria-current")).toBe("page");
-    expect(childNavigation?.querySelectorAll("button.active")).toHaveLength(0);
+    const parentChildNavigation = root.querySelector<HTMLElement>("nav.child-navigation");
+    const currentParentUtility = root.querySelector<HTMLElement>(".parent-utility");
+    expect(currentParentUtility?.querySelector('[data-nav="parent"]')?.getAttribute("aria-current")).toBe("page");
+    expect(parentChildNavigation?.querySelectorAll("button.active")).toHaveLength(0);
+  });
+
+  it("source-covers the responsive navigation and adventure layout hooks", () => {
+    const css = readFileSync(`${process.cwd()}/src/styles.css`, "utf8");
+    expect(css).toMatch(/\.navigation-shell\s*\{\s*display:\s*grid;\s*gap:\s*\.5rem;\s*\}/);
+    expect(css).toMatch(/\.parent-utility\s*\{\s*display:\s*flex;/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*701px\)\s*\{\s*\.child-navigation\s*\{\s*grid-template-columns:\s*repeat\(3,\s*minmax\(0,\s*1fr\)\);\s*grid-auto-rows:\s*52px;/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*768px\)\s*\{\s*\.navigation-shell\s*\{\s*grid-template-columns:\s*minmax\(0,\s*1fr\)\s+max-content;\s*align-items:\s*stretch;/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*1100px\)\s*\{\s*\.child-navigation\s*\{\s*grid-template-columns:\s*repeat\(6,\s*minmax\(0,\s*1fr\)\);/);
+    expect(css).toMatch(/\.journey-overview-list\s*\{\s*display:\s*grid;\s*grid-template-columns:\s*repeat\(2,\s*minmax\(0,\s*1fr\)\);/);
+    expect(css).toMatch(/@media\s*\(min-width:\s*768px\)\s*\{\s*\.journey-overview-list\s*\{\s*grid-template-columns:\s*repeat\(4,\s*minmax\(0,\s*1fr\)\);/);
+    expect(css).toMatch(/\.adventure-disclosure\s*\{\s*max-width:\s*760px;\s*margin:\s*\.75rem\s+auto;\s*border:\s*3px\s+solid\s+#d7e3f2;\s*border-radius:\s*1.25rem;\s*background:\s*rgb\(255\s+255\s+255\s*\/\s*94%\);\s*box-shadow:\s*var\(--shadow\);/);
+    expect(css).toMatch(/\.adventure-disclosure\s*>\s*summary\s*\{\s*min-height:\s*44px;/);
+    expect(css).not.toContain(".journey-path");
   });
 
   it("accounts for visual and accessibility channels in all six views", () => {
