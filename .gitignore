@@ -3,7 +3,7 @@ node_modules
 .DS_Store
 
 .env
-
+issues/
 
 dist
 coverage
