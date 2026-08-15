@@ -1,5 +1,4 @@
 # AGENTS.md
 
-## Project purpose
-
-## Development sequence and boundaries
+- Mark each copleated task with "x"
+- Use git

@@ -1,4 +1,5 @@
 node_modules
+.pnpm-store
 .pi
 .DS_Store
 
@@ -7,3 +8,5 @@ issues/
 
 dist
 coverage
+test-results
+playwright-report
