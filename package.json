@@ -1,0 +1,22 @@
+{
+  "name": "mobey",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@11.25.0",
+  "engines": {
+    "node": ">=24.20.0 <25"
+  },
+  "devDependencies": {
+    "turbo": "2.10.12"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "type-check": "turbo run type-check",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "contract": "turbo run contract",
+    "infrastructure": "turbo run infrastructure",
+    "migrate": "turbo run migrate",
+    "deploy": "turbo run deploy"
+  }
+}
