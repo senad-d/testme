@@ -1,0 +1,16 @@
+{
+  "name": "@mobey/e2e",
+  "version": "0.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "type-check": "tsc --project tsconfig.json --noEmit",
+    "test": "playwright test --pass-with-no-tests"
+  },
+  "devDependencies": {
+    "@axe-core/playwright": "4.13.0",
+    "@playwright/test": "1.62.1",
+    "@types/node": "24.13.3",
+    "typescript": "6.0.3"
+  }
+}
