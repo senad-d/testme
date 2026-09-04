@@ -1,0 +1,10 @@
+packages:
+  - 'apps/*'
+  - 'packages/*'
+  - 'tests/e2e'
+
+engineStrict: true
+linkWorkspacePackages: true
+preferWorkspacePackages: true
+saveExact: true
+sharedWorkspaceLockfile: true
