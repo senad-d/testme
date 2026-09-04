@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "repository": "senad-d/testme",
+  "number": 1,
+  "title": "docs: establish initial Mobey planning baseline",
+  "state": "open",
+  "creator": "senad-d",
+  "body": "## Purpose\nTrack the completed initial product and technical planning documentation for Mobey before the first pull request. This baseline describes a private Family-loop MVP for children ages 7–9 and establishes the authoritative planning context for later issue-driven delivery.\n\n## Scope\nCreate, align, independently review, and remediate the repository guidance and initial planning set:\n\n- `AGENTS.md`\n- `docs/discovery/mobey-initial-product-discovery.md`\n- `docs/product/mobey-prd.md`\n- `docs/technical/mobey-technical-spec.md`\n- `docs/plans/mobey-mvp-implementation-plan.md`\n\nPreserve the established `U-*`, `REQ-*`, and `OQ-*` traceability across these documents. Unresolved decision gates intentionally remain open, including `OQ-14` and `OQ-15`; they block applicable implementation work, not this documentation pull request.\n\n## Acceptance criteria\n- [ ] All five scoped files are present and consistently describe the private Family-loop MVP planning baseline.\n- [ ] Each scoped file has received independent review, and identified in-scope defects have been remediated.\n- [ ] Existing `U-*`, `REQ-*`, and `OQ-*` identifiers remain traceable across the authoritative documents without silently resolving open questions.\n- [ ] `OQ-14` and `OQ-15` are explicitly preserved and propagated where applicable.\n- [ ] The documents clearly state that the repository is planning-only and is not ready for feature implementation commitment or pilot release.\n- [ ] Remaining unresolved `OQ-*` gates are recorded as intentional blockers for the implementation work they govern, while not blocking this documentation pull request.\n- [ ] The change contains no application, test, Docker/Compose, CI/CD, or Terraform implementation.\n- [ ] The first pull request references this issue and reports the exact changed-file manifest and review/remediation evidence.\n\n## Constraints\nThis issue establishes documentation and repository guidance only. It does not authorize an implementation backlog, application code, infrastructure, deployment, or resolution of any open product, legal, privacy, security, operational, cost, or concurrency decision.",
+  "labels": [
+    "documentation"
+  ],
+  "assignees": [],
+  "milestone": null,
+  "sub_issues_count": 0,
+  "comments": [],
+  "comments_truncated": false,
+  "comments_count": 0,
+  "comments_fetch_limit": 0,
+  "html_url": "https://github.com/senad-d/testme/issues/1",
+  "created_at": "2026-09-04T05:52:14Z",
+  "updated_at": "2026-09-04T05:52:14Z",
+  "closed_at": null,
+  "synced_at": "2026-09-04T05:52:14.518Z"
+}
