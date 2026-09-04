@@ -3,6 +3,7 @@
   "tasks": {
     "build": {
       "dependsOn": ["^build"],
+      "env": ["MOBEY_PUBLIC_BUILD_VERSION"],
       "outputs": ["dist/**"]
     },
     "type-check": {
