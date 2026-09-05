@@ -1,0 +1,303 @@
+diff --git a/column-builder.d.ts b/column-builder.d.ts
+index 07dfef92d0c098601abb8292847460e278863bd8..54de50f68e614c13e89802e684c8a042ef0c6791 100644
+--- a/column-builder.d.ts
++++ b/column-builder.d.ts
+@@ -1,11 +1,11 @@
+ import { entityKind } from "./entity.js";
+ import type { Column } from "./column.js";
+-import type { GelColumn, GelExtraConfigColumn } from "./gel-core/index.js";
+-import type { MySqlColumn } from "./mysql-core/index.js";
++import type { GelColumn, GelExtraConfigColumn } from "./gel-core/columns/common.js";
++import type { MySqlColumn } from "./mysql-core/columns/common.js";
+ import type { ExtraConfigColumn, PgColumn, PgSequenceOptions } from "./pg-core/index.js";
+-import type { SingleStoreColumn } from "./singlestore-core/index.js";
++import type { SingleStoreColumn } from "./singlestore-core/columns/common.js";
+ import type { SQL } from "./sql/sql.js";
+-import type { SQLiteColumn } from "./sqlite-core/index.js";
++import type { SQLiteColumn } from "./sqlite-core/columns/common.js";
+ import type { Assume, Simplify } from "./utils.js";
+ export type ColumnDataType = 'string' | 'number' | 'boolean' | 'array' | 'json' | 'date' | 'bigint' | 'custom' | 'buffer' | 'dateDuration' | 'duration' | 'relDuration' | 'localTime' | 'localDate' | 'localDateTime';
+ export type Dialect = 'pg' | 'mysql' | 'sqlite' | 'singlestore' | 'common' | 'gel';
+diff --git a/gel-core/columns/common.d.ts b/gel-core/columns/common.d.ts
+index ce848e359c9d807a16e32df07cf860937e4ae62f..6f67e0aa10fe12683b38fff26204e06701a8c845 100644
+--- a/gel-core/columns/common.d.ts
++++ b/gel-core/columns/common.d.ts
+@@ -5,7 +5,7 @@ import { Column } from "../../column.js";
+ import { entityKind } from "../../entity.js";
+ import type { Simplify, Update } from "../../utils.js";
+ import type { UpdateDeleteAction } from "../foreign-keys.js";
+-import type { AnyGelTable, GelTable } from "../table.js";
++import type { AnyGelTable, GelTable } from "../table-base.js";
+ import type { SQL } from "../../sql/sql.js";
+ import type { GelIndexOpClass } from "../indexes.js";
+ export interface ReferenceConfig {
+diff --git a/gel-core/foreign-keys.d.ts b/gel-core/foreign-keys.d.ts
+index 240452e12ffd049acb50490be5d78c441473c51c..2e19fde55e2ac8b70a1169b27ade2f1eace689a0 100644
+--- a/gel-core/foreign-keys.d.ts
++++ b/gel-core/foreign-keys.d.ts
+@@ -1,6 +1,6 @@
+ import { entityKind } from "../entity.js";
+-import type { AnyGelColumn, GelColumn } from "./columns/index.js";
+-import type { GelTable } from "./table.js";
++import type { AnyGelColumn, GelColumn } from "./columns/common.js";
++import type { GelTable } from "./table-base.js";
+ export type UpdateDeleteAction = 'cascade' | 'restrict' | 'no action' | 'set null' | 'set default';
+ export type Reference = () => {
+     readonly name?: string;
+diff --git a/gel-core/indexes.d.ts b/gel-core/indexes.d.ts
+index 5e0bde2b3c21d715025b1e207899bf63c3fb6ffe..d65d487f1597a86cd06d52f89fe778c7997c5f2c 100644
+--- a/gel-core/indexes.d.ts
++++ b/gel-core/indexes.d.ts
+@@ -1,8 +1,8 @@
+ import { SQL } from "../sql/sql.js";
+ import { entityKind } from "../entity.js";
+-import type { GelColumn, GelExtraConfigColumn } from "./columns/index.js";
+-import { IndexedColumn } from "./columns/index.js";
+-import type { GelTable } from "./table.js";
++import type { GelColumn, GelExtraConfigColumn } from "./columns/common.js";
++import { IndexedColumn } from "./columns/common.js";
++import type { GelTable } from "./table-base.js";
+ interface IndexConfig {
+     name?: string;
+     columns: Partial<IndexedColumn | SQL>[];
+diff --git a/gel-core/table-base.d.ts b/gel-core/table-base.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..a5f8682957480c56ad466398ea6d3115b9b5cd14
+--- /dev/null
++++ b/gel-core/table-base.d.ts
+@@ -0,0 +1,8 @@
++import { entityKind } from "../entity.js";
++import { Table, type TableConfig as TableConfigBase, type UpdateTableConfig } from "../table.js";
++import type { GelColumn } from "./columns/common.js";
++export type TableConfig = TableConfigBase<GelColumn>;
++export declare class GelTable<T extends TableConfig = TableConfig> extends Table<T> {
++    static readonly [entityKind]: string;
++}
++export type AnyGelTable<TPartial extends Partial<TableConfig> = {}> = GelTable<UpdateTableConfig<TableConfig, TPartial>>;
+diff --git a/gel-core/table.d.ts b/gel-core/table.d.ts
+index 4d2778f4bb52acd0a35b2502582624936a909f09..cca32c645549f79e12b17b7ba4347ef9874986e2 100644
+--- a/gel-core/table.d.ts
++++ b/gel-core/table.d.ts
+@@ -1,9 +1,9 @@
+ import type { BuildColumns, BuildExtraConfigColumns } from "../column-builder.js";
+-import { entityKind } from "../entity.js";
+-import { Table, type TableConfig as TableConfigBase, type UpdateTableConfig } from "../table.js";
++import type { GelTable, TableConfig } from "./table-base.js";
++export { GelTable, type AnyGelTable, type TableConfig } from "./table-base.js";
+ import type { CheckBuilder } from "./checks.js";
+ import { type GelColumnsBuilders } from "./columns/all.js";
+-import type { GelColumn, GelColumnBuilderBase } from "./columns/common.js";
++import type { GelColumnBuilderBase } from "./columns/common.js";
+ import type { ForeignKeyBuilder } from "./foreign-keys.js";
+ import type { AnyIndexBuilder } from "./indexes.js";
+ import type { GelPolicy } from "./policies.js";
+@@ -11,11 +11,6 @@ import type { PrimaryKeyBuilder } from "./primary-keys.js";
+ import type { UniqueConstraintBuilder } from "./unique-constraint.js";
+ export type GelTableExtraConfigValue = AnyIndexBuilder | CheckBuilder | ForeignKeyBuilder | PrimaryKeyBuilder | UniqueConstraintBuilder | GelPolicy;
+ export type GelTableExtraConfig = Record<string, GelTableExtraConfigValue>;
+-export type TableConfig = TableConfigBase<GelColumn>;
+-export declare class GelTable<T extends TableConfig = TableConfig> extends Table<T> {
+-    static readonly [entityKind]: string;
+-}
+-export type AnyGelTable<TPartial extends Partial<TableConfig> = {}> = GelTable<UpdateTableConfig<TableConfig, TPartial>>;
+ export type GelTableWithColumns<T extends TableConfig> = GelTable<T> & {
+     [Key in keyof T['columns']]: T['columns'][Key];
+ } & {
+diff --git a/pg-core/policies.d.ts b/pg-core/policies.d.ts
+index 9f4339c6bcd2850330e98c059e59db2fa60f73dc..2d5ecb092b6288d29a0e2209d8b9aa182a6c537f 100644
+--- a/pg-core/policies.d.ts
++++ b/pg-core/policies.d.ts
+@@ -4,11 +4,11 @@ import type { PgRole } from "./roles.js";
+ import type { PgTable } from "./table.js";
+ export type PgPolicyToOption = 'public' | 'current_role' | 'current_user' | 'session_user' | (string & {}) | PgPolicyToOption[] | PgRole;
+ export interface PgPolicyConfig {
+-    as?: 'permissive' | 'restrictive';
+-    for?: 'all' | 'select' | 'insert' | 'update' | 'delete';
+-    to?: PgPolicyToOption;
+-    using?: SQL;
+-    withCheck?: SQL;
++    as?: 'permissive' | 'restrictive' | undefined;
++    for?: 'all' | 'select' | 'insert' | 'update' | 'delete' | undefined;
++    to?: PgPolicyToOption | undefined;
++    using?: SQL | undefined;
++    withCheck?: SQL | undefined;
+ }
+ export declare class PgPolicy implements PgPolicyConfig {
+     readonly name: string;
+diff --git a/pg-core/query-builders/query.d.ts b/pg-core/query-builders/query.d.ts
+index 94e995bb97bdd824abb0e3384f5a68f0ce3aeb6a..0f3f09f6fa58111b21edf3ac636b7989bce7a952 100644
+--- a/pg-core/query-builders/query.d.ts
++++ b/pg-core/query-builders/query.d.ts
+@@ -2,7 +2,7 @@ import { entityKind } from "../../entity.js";
+ import { QueryPromise } from "../../query-promise.js";
+ import { type BuildQueryResult, type DBQueryConfig, type TableRelationalConfig, type TablesRelationalConfig } from "../../relations.js";
+ import type { RunnableQuery } from "../../runnable-query.js";
+-import type { Query, SQLWrapper } from "../../sql/sql.js";
++import type { Query, SQL, SQLWrapper } from "../../sql/sql.js";
+ import type { KnownKeysOnly } from "../../utils.js";
+ import type { PgDialect } from "../dialect.js";
+ import type { PgPreparedQuery, PgSession, PreparedQueryConfig } from "../session.js";
+@@ -39,6 +39,7 @@ export declare class PgRelationalQuery<TResult> extends QueryPromise<TResult> im
+     prepare(name: string): PgPreparedQuery<PreparedQueryConfig & {
+         execute: TResult;
+     }>;
++    getSQL(): SQL;
+     private _getQuery;
+     private _toSQL;
+     toSQL(): Query;
+diff --git a/pg-core/roles.d.ts b/pg-core/roles.d.ts
+index 443d397a775cfc70ef6b41e9763a223d2055611f..4418e35a947fd06c970a874a495aca7750031743 100644
+--- a/pg-core/roles.d.ts
++++ b/pg-core/roles.d.ts
+@@ -1,12 +1,15 @@
+ import { entityKind } from "../entity.js";
+ export interface PgRoleConfig {
+-    createDb?: boolean;
+-    createRole?: boolean;
+-    inherit?: boolean;
++    createDb?: boolean | undefined;
++    createRole?: boolean | undefined;
++    inherit?: boolean | undefined;
+ }
+ export declare class PgRole implements PgRoleConfig {
+     readonly name: string;
+     static readonly [entityKind]: string;
++    readonly createDb: PgRoleConfig['createDb'];
++    readonly createRole: PgRoleConfig['createRole'];
++    readonly inherit: PgRoleConfig['inherit'];
+     constructor(name: string, config?: PgRoleConfig);
+     existing(): this;
+ }
+diff --git a/singlestore-core/columns/common.d.ts b/singlestore-core/columns/common.d.ts
+index 7d53fe47556ddbdb32d32d6d67799c5f2fc8d8e9..7f80c31b848a739e85bc597c1d2ff4cf4a981296 100644
+--- a/singlestore-core/columns/common.d.ts
++++ b/singlestore-core/columns/common.d.ts
+@@ -3,7 +3,7 @@ import { ColumnBuilder } from "../../column-builder.js";
+ import type { ColumnBaseConfig } from "../../column.js";
+ import { Column } from "../../column.js";
+ import { entityKind } from "../../entity.js";
+-import type { SingleStoreTable } from "../table.js";
++import type { SingleStoreTable } from "../table-base.js";
+ import type { Update } from "../../utils.js";
+ export interface SingleStoreColumnBuilderBase<T extends ColumnBuilderBaseConfig<ColumnDataType, string> = ColumnBuilderBaseConfig<ColumnDataType, string>, TTypeConfig extends object = object> extends ColumnBuilderBase<T, TTypeConfig & {
+     dialect: 'singlestore';
+diff --git a/singlestore-core/table-base.d.ts b/singlestore-core/table-base.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..0294b324de5173373c9058d87a255792338f1547
+--- /dev/null
++++ b/singlestore-core/table-base.d.ts
+@@ -0,0 +1,9 @@
++import { entityKind } from "../entity.js";
++import { Table, type TableConfig as TableConfigBase, type UpdateTableConfig } from "../table.js";
++import type { SingleStoreColumn } from "./columns/common.js";
++export type TableConfig = TableConfigBase<SingleStoreColumn>;
++export declare class SingleStoreTable<T extends TableConfig = TableConfig> extends Table<T> {
++    static readonly [entityKind]: string;
++    protected $columns: T['columns'];
++}
++export type AnySingleStoreTable<TPartial extends Partial<TableConfig> = {}> = SingleStoreTable<UpdateTableConfig<TableConfig, TPartial>>;
+diff --git a/singlestore-core/table.d.ts b/singlestore-core/table.d.ts
+index 4ab7835e050fd63b0c1220d1d2a9b4dc20e8dc44..7b874d299510adb26f86727671cb01009a41ab85 100644
+--- a/singlestore-core/table.d.ts
++++ b/singlestore-core/table.d.ts
+@@ -1,19 +1,13 @@
+ import type { BuildColumns } from "../column-builder.js";
+-import { entityKind } from "../entity.js";
+-import { Table, type TableConfig as TableConfigBase, type UpdateTableConfig } from "../table.js";
++import type { SingleStoreTable, TableConfig } from "./table-base.js";
++export { SingleStoreTable, type AnySingleStoreTable, type TableConfig } from "./table-base.js";
+ import { type SingleStoreColumnBuilders } from "./columns/all.js";
+-import type { SingleStoreColumn, SingleStoreColumnBuilderBase } from "./columns/common.js";
++import type { SingleStoreColumnBuilderBase } from "./columns/common.js";
+ import type { AnyIndexBuilder } from "./indexes.js";
+ import type { PrimaryKeyBuilder } from "./primary-keys.js";
+ import type { UniqueConstraintBuilder } from "./unique-constraint.js";
+ export type SingleStoreTableExtraConfigValue = AnyIndexBuilder | PrimaryKeyBuilder | UniqueConstraintBuilder;
+ export type SingleStoreTableExtraConfig = Record<string, SingleStoreTableExtraConfigValue>;
+-export type TableConfig = TableConfigBase<SingleStoreColumn>;
+-export declare class SingleStoreTable<T extends TableConfig = TableConfig> extends Table<T> {
+-    static readonly [entityKind]: string;
+-    protected $columns: T['columns'];
+-}
+-export type AnySingleStoreTable<TPartial extends Partial<TableConfig> = {}> = SingleStoreTable<UpdateTableConfig<TableConfig, TPartial>>;
+ export type SingleStoreTableWithColumns<T extends TableConfig> = SingleStoreTable<T> & {
+     [Key in keyof T['columns']]: T['columns'][Key];
+ };
+diff --git a/sqlite-core/columns/common.d.ts b/sqlite-core/columns/common.d.ts
+index 03996df92baaafbd52c0608c95099d4dc2efd31d..e1b06ba4838a4f6bdc4e3d312d2025846cd7bceb 100644
+--- a/sqlite-core/columns/common.d.ts
++++ b/sqlite-core/columns/common.d.ts
+@@ -5,7 +5,7 @@ import type { ColumnBaseConfig } from "../../column.js";
+ import { entityKind } from "../../entity.js";
+ import type { SQL } from "../../sql/sql.js";
+ import type { UpdateDeleteAction } from "../foreign-keys.js";
+-import type { SQLiteTable } from "../table.js";
++import type { SQLiteTable } from "../table-base.js";
+ import type { Update } from "../../utils.js";
+ export interface ReferenceConfig {
+     ref: () => SQLiteColumn;
+diff --git a/sqlite-core/foreign-keys.d.ts b/sqlite-core/foreign-keys.d.ts
+index 126140d2c661c2b1402d4c005b54cc3e45fe399f..6c2fa086ca782e5492df5206836d28b4586b856b 100644
+--- a/sqlite-core/foreign-keys.d.ts
++++ b/sqlite-core/foreign-keys.d.ts
+@@ -1,6 +1,6 @@
+ import { entityKind } from "../entity.js";
+-import type { AnySQLiteColumn, SQLiteColumn } from "./columns/index.js";
+-import type { SQLiteTable } from "./table.js";
++import type { AnySQLiteColumn, SQLiteColumn } from "./columns/common.js";
++import type { SQLiteTable } from "./table-base.js";
+ export type UpdateDeleteAction = 'cascade' | 'restrict' | 'no action' | 'set null' | 'set default';
+ export type Reference = () => {
+     readonly name?: string;
+diff --git a/sqlite-core/table-base.d.ts b/sqlite-core/table-base.d.ts
+new file mode 100644
+index 0000000000000000000000000000000000000000..30de9ce05da0a239b05ea5cb74b8b6b2becac277
+--- /dev/null
++++ b/sqlite-core/table-base.d.ts
+@@ -0,0 +1,8 @@
++import { entityKind } from "../entity.js";
++import { Table, type TableConfig as TableConfigBase, type UpdateTableConfig } from "../table.js";
++import type { SQLiteColumn } from "./columns/common.js";
++export type TableConfig = TableConfigBase<SQLiteColumn<any>>;
++export declare class SQLiteTable<T extends TableConfig = TableConfig> extends Table<T> {
++    static readonly [entityKind]: string;
++}
++export type AnySQLiteTable<TPartial extends Partial<TableConfig> = {}> = SQLiteTable<UpdateTableConfig<TableConfig, TPartial>>;
+diff --git a/sqlite-core/table.d.ts b/sqlite-core/table.d.ts
+index 611cf8ee47fb1bef059eacb3eec7afdb51bd56f9..b1be2ccbade82ac06e81b72f4f3bd050bf0b1c94 100644
+--- a/sqlite-core/table.d.ts
++++ b/sqlite-core/table.d.ts
+@@ -1,20 +1,15 @@
+ import type { BuildColumns } from "../column-builder.js";
+-import { entityKind } from "../entity.js";
+-import { Table, type TableConfig as TableConfigBase, type UpdateTableConfig } from "../table.js";
++import type { SQLiteTable, TableConfig } from "./table-base.js";
++export { SQLiteTable, type AnySQLiteTable, type TableConfig } from "./table-base.js";
+ import type { CheckBuilder } from "./checks.js";
+ import { type SQLiteColumnBuilders } from "./columns/all.js";
+-import type { SQLiteColumn, SQLiteColumnBuilderBase } from "./columns/common.js";
++import type { SQLiteColumnBuilderBase } from "./columns/common.js";
+ import type { ForeignKeyBuilder } from "./foreign-keys.js";
+ import type { IndexBuilder } from "./indexes.js";
+ import type { PrimaryKeyBuilder } from "./primary-keys.js";
+ import type { UniqueConstraintBuilder } from "./unique-constraint.js";
+ export type SQLiteTableExtraConfigValue = IndexBuilder | CheckBuilder | ForeignKeyBuilder | PrimaryKeyBuilder | UniqueConstraintBuilder;
+ export type SQLiteTableExtraConfig = Record<string, SQLiteTableExtraConfigValue>;
+-export type TableConfig = TableConfigBase<SQLiteColumn<any>>;
+-export declare class SQLiteTable<T extends TableConfig = TableConfig> extends Table<T> {
+-    static readonly [entityKind]: string;
+-}
+-export type AnySQLiteTable<TPartial extends Partial<TableConfig> = {}> = SQLiteTable<UpdateTableConfig<TableConfig, TPartial>>;
+ export type SQLiteTableWithColumns<T extends TableConfig> = SQLiteTable<T> & {
+     [Key in keyof T['columns']]: T['columns'][Key];
+ };
+diff --git a/utils.d.ts b/utils.d.ts
+index fc964986ba05651f22cd9883a0ed68ac8dd55ef7..682b6f86beaab5afd86baed2c2b50629f35ca432 100644
+--- a/utils.d.ts
++++ b/utils.d.ts
+@@ -60,4 +60,4 @@ export type ImportTypeError<TPackageName extends string> = `Please install \`${T
+ export type RequireAtLeastOne<T, Keys extends keyof T = keyof T> = Keys extends any ? Required<Pick<T, Keys>> & Partial<Omit<T, Keys>> : never;
+ export declare function isConfig(data: any): boolean;
+ export type NeonAuthToken = string | (() => string | Promise<string>);
+-export declare const textDecoder: TextDecoder | null;
++export declare const textDecoder: InstanceType<typeof TextDecoder> | null;
