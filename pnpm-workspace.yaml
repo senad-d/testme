@@ -3,8 +3,16 @@ packages:
   - 'packages/*'
   - 'tests/e2e'
 
+allowBuilds:
+  cpu-features: false
+  esbuild: true
+  protobufjs: false
+  ssh2: false
+
 engineStrict: true
 linkWorkspacePackages: true
+patchedDependencies:
+  drizzle-orm@0.45.2: patches/drizzle-orm@0.45.2.patch
 preferWorkspacePackages: true
 saveExact: true
 sharedWorkspaceLockfile: true
