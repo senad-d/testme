@@ -1,7 +1,8 @@
 # Mobey Repository Guidance
 
 **Scope:** Repository-wide guidance for coding agents  
-**Current phase:** Planning baseline; no application, test, Docker, CI/CD, or Terraform implementation exists  
+**Current phase:** Platform foundation implemented; domain features and release gates remain conditional
+
 **Product release:** Family-loop MVP private pilot
 
 ## 1. Start here
@@ -56,7 +57,8 @@ The selected design is a TypeScript modular monolith:
 - version-controlled content with no CMS; and
 - Docker/Compose locally and Terraform-managed AWS deployment.
 
-These are **intended future paths**, not current files:
+The application/package roots below now exist. E2E contains tooling only;
+Terraform, GitHub workflows, and Compose remain intended future surfaces in this checkout:
 
 ```text
 apps/web/                         React/Vite UI
@@ -121,7 +123,23 @@ When routes are implemented, a public controller/DTO/error change must regenerat
 
 ## 6. Local development expectations
 
-No verified local-development command exists today because `package.json`, lockfile, Dockerfiles, and `compose.yaml` have not been created. Do not document or claim a command works until it is committed and tested from a clean checkout.
+Use the pinned Node 24.20.0 and pnpm 11.25.0 toolchain. Install dependencies with
+`pnpm install --frozen-lockfile`; do not use the default Node 26 runtime as verification
+evidence. The workspace has build, type-check, test, and contract commands. Exact
+commands and their evidence scope live in [`docs/testing.md`](docs/testing.md).
+Clean-checkout and publication evidence must be established by the delivery workflow;
+a working-tree check alone is not clean-clone or release evidence.
+
+For public controller/DTO/error changes, run
+`pnpm --filter @mobey/api contract:generate`, review the generator-owned
+`packages/shared/src/generated/api.ts`, then run `pnpm --filter @mobey/api contract`.
+The latter fails on missing/stale output without rewriting it. Use
+`pnpm contract --force` to run the workspace contract gate without a Turbo cache hit.
+Generation uses Nest OpenAPI metadata without a database query or listening server.
+The generated file's schema digest also tracks constraints not expressible as
+TypeScript types. Never hand-edit generated output. See the registry's Task 13
+section for safe problem details, request IDs, decimal-string transport, and the
+preserved health-report contract.
 
 The future Compose stack must provide one documented command for `web`, `api`, `db`, and one-shot `migrate` services. It must support web/API source hot reload, wait for database health and successful migration, use a persistent local database volume, and use explicit synthetic development-only secrets and allowlist data. It must not implicitly read the ignored root `.env`, use real participant data, or select insecure local cookie/development-secret behavior outside development. Production image stages must use frozen dependencies and non-root containers where compatible.
 
@@ -196,6 +214,14 @@ Do not:
 
 ## 12. Current repository phase
 
-The repository currently contains planning documentation, a minimal `.gitignore`, an ignored root `.env`, and stale SonarCloud configuration. It has no application source, dependency manifests, lockfile, tests, Docker/Compose files, Terraform, GitHub templates/workflows, or verified development commands.
+This checkout contains the pinned pnpm/Turbo workspace, web/API health slice,
+PostgreSQL access and checked platform migrations, shared primitives, API integration
+tests, and generated REST contract tooling. The ignored root `.env` is local state
+and must not be read implicitly. Compose work is independent; this change does not
+supply Docker/Compose, Terraform, GitHub workflows, or domain behavior. SonarCloud
+configuration remains stale and the root lint graph currently has no package lint
+tasks. See `docs/testing.md` for actual check coverage rather than inferring release
+readiness from a successful command.
 
-The technical and implementation baselines are conditional. Reversible repository/tooling work may proceed only through an approved issue; feature work must obey its Phase 0 dependencies. The project is **not ready for feature implementation commitment or pilot release**. No running-code, test, legal/privacy, educational-content, target-age usability, cost, AWS deployment, or independent release-audit evidence exists yet.
+The technical and implementation baselines are conditional. Reversible repository/tooling work may proceed only through an approved issue; feature work must obey its Phase 0 dependencies. The project is **not ready for feature implementation commitment or pilot release**. Platform checks are not legal/privacy approval, educational-content or target-age
+usability evidence, cost/AWS deployment evidence, or an independent release audit.

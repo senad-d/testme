@@ -4,11 +4,13 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Inject,
   Injectable,
   Module,
   type OnApplicationShutdown,
   Res,
 } from '@nestjs/common';
+import { ApiOkResponse, ApiResponse } from '@nestjs/swagger';
 import type { FastifyReply } from 'fastify';
 
 import {
@@ -49,8 +51,19 @@ class DatabaseReadinessService implements OnApplicationShutdown {
 
 @Controller('health')
 class HealthController {
-  constructor(private readonly databaseReadiness: DatabaseReadinessService) {}
+  constructor(
+    @Inject(DatabaseReadinessService) private readonly databaseReadiness: DatabaseReadinessService,
+  ) {}
 
+  @ApiOkResponse({
+    description: 'The API process is live.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['ok'] } },
+    },
+  })
   @Get('live')
   @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
@@ -58,6 +71,25 @@ class HealthController {
     return { status: 'ok' };
   }
 
+  @ApiOkResponse({
+    description: 'PostgreSQL is reachable and required migrations are applied.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['ok'] } },
+    },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Operational readiness report; not a controller exception.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['unavailable'] } },
+    },
+  })
   @Get('ready')
   @Header('Cache-Control', 'no-store')
   async ready(@Res({ passthrough: true }) response: FastifyReply): Promise<HealthResponse> {
