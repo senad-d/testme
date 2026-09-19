@@ -9,6 +9,7 @@ import { ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { Ajv } from 'ajv';
 import type { FastifyInstance } from 'fastify';
+import { getApplicationVersion } from '@mobey/shared';
 import ts from 'typescript';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
@@ -370,6 +371,13 @@ describe('HTTP contract', () => {
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
+  test('returns the shared application version without allowing caches', async () => {
+    const response = await platformHttp.inject('/api/v1/version');
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({ version: getApplicationVersion() });
+    expect(response.headers['cache-control']).toBe('no-store');
+  });
+
   test.each([undefined, '', SYNTHETIC_MARKER, `${REQUEST_ID},${REQUEST_ID}`, 'a'.repeat(1000)])(
     'replaces absent or malformed correlation IDs %# on successes and errors',
     async (id) => {
@@ -490,7 +498,7 @@ describe('generated contract', () => {
     ).toEqual([2322, 2322]);
   }, 30_000);
 
-  test('compiled production bootstrap serves health and redacted problems with correlation headers', () => {
+  test('compiled production bootstrap serves version, health, and redacted problems with correlation headers', () => {
     const result = spawnSync(
       process.execPath,
       [
@@ -503,7 +511,7 @@ describe('generated contract', () => {
         await app.init();
         const http = app.getHttpAdapter().getInstance();
         const results = [];
-        for (const url of ['/api/v1/health/live', '/api/v1/${SYNTHETIC_MARKER}', '/api/v1/${SYNTHETIC_MARKER}/%ZZ']) {
+        for (const url of ['/api/v1/version', '/api/v1/health/live', '/api/v1/${SYNTHETIC_MARKER}', '/api/v1/${SYNTHETIC_MARKER}/%ZZ']) {
           const response = await http.inject({ url, headers: { 'x-request-id': '${REQUEST_ID}' } });
           results.push({ status: response.statusCode, headers: response.headers, body: response.json() });
         }
@@ -517,6 +525,11 @@ describe('generated contract', () => {
     expect(result.stderr).toBe('');
     const results: unknown = JSON.parse(result.stdout);
     expect(results).toMatchObject([
+      {
+        status: 200,
+        headers: { 'x-request-id': REQUEST_ID, 'cache-control': 'no-store' },
+        body: { version: getApplicationVersion() },
+      },
       { status: 200, headers: { 'x-request-id': REQUEST_ID }, body: { status: 'ok' } },
       {
         status: 404,
@@ -539,12 +552,17 @@ describe('generated contract', () => {
     expect(result.stdout).not.toContain(SYNTHETIC_MARKER);
   });
 
-  test('documents only shipped routes and every stable code, money syntax, and correlation header', () => {
+  test('documents the version route and every other shipped contract surface', () => {
     const document = createOpenApiDocument(platform);
     expect(Object.keys(document.paths).sort()).toEqual([
       '/api/v1/health/live',
       '/api/v1/health/ready',
+      '/api/v1/version',
     ]);
+    expect(document.paths['/api/v1/version']?.get?.responses['200']).toHaveProperty(
+      'content.application/json.schema.properties.version.type',
+      'string',
+    );
     expect(Object.keys(PROBLEMS).sort()).toEqual(Object.keys(PROBLEM_STATUSES).sort());
     for (const code of Object.keys(PROBLEM_STATUSES))
       expect(document.components?.schemas).toHaveProperty(code);

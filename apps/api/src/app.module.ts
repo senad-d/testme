@@ -11,6 +11,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiResponse } from '@nestjs/swagger';
+import { getApplicationVersion } from '@mobey/shared';
 import type { FastifyReply } from 'fastify';
 
 import {
@@ -22,6 +23,10 @@ import { verifyDatabaseReadiness } from './database/migrate.js';
 
 type HealthResponse = Readonly<{
   status: 'ok' | 'unavailable';
+}>;
+
+type VersionResponse = Readonly<{
+  version: string;
 }>;
 
 @Injectable()
@@ -100,8 +105,27 @@ class HealthController {
   }
 }
 
+@Controller('version')
+class VersionController {
+  @ApiOkResponse({
+    description: 'The running application version.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['version'],
+      properties: { version: { type: 'string' } },
+    },
+  })
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  version(): VersionResponse {
+    return { version: getApplicationVersion() };
+  }
+}
+
 @Module({
-  controllers: [HealthController],
+  controllers: [HealthController, VersionController],
   providers: [DatabaseReadinessService],
 })
 // Nest modules are intentionally metadata-only classes.
