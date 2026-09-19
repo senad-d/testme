@@ -4,14 +4,15 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "pnpm --filter @mobey/shared build && tsc --project tsconfig.json",
     "contract": "pnpm build && node dist/openapi.js --check",
     "contract:generate": "pnpm build && node dist/openapi.js --write",
     "migrate": "node dist/database/migrate.js",
-    "type-check": "tsc --project tsconfig.json --noEmit",
-    "test": "pnpm --filter @mobey/shared build && pnpm build && vitest run --passWithNoTests"
+    "type-check": "pnpm --filter @mobey/shared build && tsc --project tsconfig.json --noEmit",
+    "test": "pnpm build && vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@mobey/shared": "workspace:*",
     "@nestjs/common": "12.0.1",
     "@nestjs/core": "12.0.1",
     "@nestjs/platform-fastify": "12.0.1",
@@ -26,7 +27,6 @@
   },
   "devDependencies": {
     "@hey-api/openapi-ts": "0.99.0",
-    "@mobey/shared": "workspace:*",
     "@nestjs/testing": "12.0.1",
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "24.13.3",
