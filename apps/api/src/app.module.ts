@@ -11,7 +11,11 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiResponse } from '@nestjs/swagger';
-import { getApplicationName, getApplicationVersion } from '@mobey/shared';
+import {
+  getApplicationDescription,
+  getApplicationName,
+  getApplicationVersion,
+} from '@mobey/shared';
 import type { FastifyReply } from 'fastify';
 
 import {
@@ -28,6 +32,7 @@ type HealthResponse = Readonly<{
 type VersionResponse = Readonly<{
   version: string;
   name: string;
+  description: string;
 }>;
 
 @Injectable()
@@ -113,10 +118,11 @@ class VersionController {
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['version', 'name'],
+      required: ['version', 'name', 'description'],
       properties: {
         version: { type: 'string' },
         name: { type: 'string' },
+        description: { type: 'string' },
       },
     },
   })
@@ -124,7 +130,11 @@ class VersionController {
   @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
   version(): VersionResponse {
-    return { version: getApplicationVersion(), name: getApplicationName() };
+    return {
+      version: getApplicationVersion(),
+      name: getApplicationName(),
+      description: getApplicationDescription(),
+    };
   }
 }
 

@@ -1,6 +1,12 @@
 import { describe, expect, it } from 'vitest';
 
-import { getApplicationName, getApplicationVersion } from './index.js';
+import { getApplicationDescription, getApplicationName, getApplicationVersion } from './index.js';
+
+describe('getApplicationDescription', () => {
+  it('returns the application description', () => {
+    expect(getApplicationDescription()).toBe('Mobey family learning and rewards');
+  });
+});
 
 describe('getApplicationName', () => {
   it('returns the application name', () => {
