@@ -9,7 +9,7 @@ import { ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { Ajv } from 'ajv';
 import type { FastifyInstance } from 'fastify';
-import { getApplicationVersion } from '@mobey/shared';
+import { getApplicationName, getApplicationVersion } from '@mobey/shared';
 import ts from 'typescript';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
@@ -371,10 +371,13 @@ describe('HTTP contract', () => {
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
-  test('returns the shared application version without allowing caches', async () => {
+  test('returns the shared application identity without allowing caches', async () => {
     const response = await platformHttp.inject('/api/v1/version');
     expect(response.statusCode).toBe(200);
-    expect(response.json()).toEqual({ version: getApplicationVersion() });
+    expect(response.json()).toEqual({
+      version: getApplicationVersion(),
+      name: getApplicationName(),
+    });
     expect(response.headers['cache-control']).toBe('no-store');
   });
 
@@ -473,12 +476,14 @@ describe('generated contract', () => {
     // Use the real web compiler configuration and built package export map, not
     // source aliases or relative generated-file imports. No web file is written.
     const fixture = `
-      import { getApplicationVersion } from '@mobey/shared';
-      import type { DecimalMoney, ProblemDetails, HealthControllerLiveResponse } from '@mobey/shared';
+      import { getApplicationName, getApplicationVersion } from '@mobey/shared';
+      import type { DecimalMoney, ProblemDetails, HealthControllerLiveResponse, VersionControllerVersionResponse } from '@mobey/shared';
       export const money: DecimalMoney = '9007199254740993';
       export const status: Extract<ProblemDetails, { code: 'STATE_CONFLICT' }>['status'] = 409;
       export const health: HealthControllerLiveResponse = { status: 'ok' };
+      export const name: string = getApplicationName();
       export const version: string = getApplicationVersion();
+      export const applicationIdentity: VersionControllerVersionResponse = { name, version };
     `;
     const diagnostics = (source: string): readonly ts.Diagnostic[] => {
       const host = ts.createCompilerHost(parsed.options);
@@ -496,6 +501,11 @@ describe('generated contract', () => {
         (diagnostic) => diagnostic.code,
       ),
     ).toEqual([2322, 2322]);
+    expect(
+      diagnostics(fixture.replace('{ name, version }', '{ version }')).map(
+        (diagnostic) => diagnostic.code,
+      ),
+    ).toEqual([2741]);
   }, 30_000);
 
   test('compiled production bootstrap serves version, health, and redacted problems with correlation headers', () => {
@@ -528,7 +538,7 @@ describe('generated contract', () => {
       {
         status: 200,
         headers: { 'x-request-id': REQUEST_ID, 'cache-control': 'no-store' },
-        body: { version: getApplicationVersion() },
+        body: { version: getApplicationVersion(), name: getApplicationName() },
       },
       { status: 200, headers: { 'x-request-id': REQUEST_ID }, body: { status: 'ok' } },
       {
@@ -559,9 +569,22 @@ describe('generated contract', () => {
       '/api/v1/health/ready',
       '/api/v1/version',
     ]);
-    expect(document.paths['/api/v1/version']?.get?.responses['200']).toHaveProperty(
+    const versionResponse = document.paths['/api/v1/version']?.get?.responses['200'];
+    expect(versionResponse).toHaveProperty(
       'content.application/json.schema.properties.version.type',
       'string',
+    );
+    expect(versionResponse).toHaveProperty(
+      'content.application/json.schema.properties.name.type',
+      'string',
+    );
+    expect(versionResponse).toHaveProperty(
+      'content.application/json.schema.required',
+      expect.arrayContaining(['version', 'name']),
+    );
+    expect(versionResponse).toHaveProperty(
+      'content.application/json.schema.additionalProperties',
+      false,
     );
     expect(Object.keys(PROBLEMS).sort()).toEqual(Object.keys(PROBLEM_STATUSES).sort());
     for (const code of Object.keys(PROBLEM_STATUSES))

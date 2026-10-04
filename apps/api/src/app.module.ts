@@ -11,7 +11,7 @@ import {
   Res,
 } from '@nestjs/common';
 import { ApiOkResponse, ApiResponse } from '@nestjs/swagger';
-import { getApplicationVersion } from '@mobey/shared';
+import { getApplicationName, getApplicationVersion } from '@mobey/shared';
 import type { FastifyReply } from 'fastify';
 
 import {
@@ -27,6 +27,7 @@ type HealthResponse = Readonly<{
 
 type VersionResponse = Readonly<{
   version: string;
+  name: string;
 }>;
 
 @Injectable()
@@ -108,19 +109,22 @@ class HealthController {
 @Controller('version')
 class VersionController {
   @ApiOkResponse({
-    description: 'The running application version.',
+    description: 'The running application identity and version.',
     schema: {
       type: 'object',
       additionalProperties: false,
-      required: ['version'],
-      properties: { version: { type: 'string' } },
+      required: ['version', 'name'],
+      properties: {
+        version: { type: 'string' },
+        name: { type: 'string' },
+      },
     },
   })
   @Get()
   @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
   version(): VersionResponse {
-    return { version: getApplicationVersion() };
+    return { version: getApplicationVersion(), name: getApplicationName() };
   }
 }
 
