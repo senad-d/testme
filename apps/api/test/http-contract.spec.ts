@@ -458,7 +458,7 @@ describe('generated contract', () => {
     ).toEqual([2322, 2322]);
   }, 30_000);
 
-  test('exports generated contract types through the shared package entrypoint for web consumers', () => {
+  test('exports generated contracts and exact money conversion types through the shared package entrypoint for web consumers', () => {
     const webDirectory = resolve(process.cwd(), '../web');
     const configPath = join(webDirectory, 'tsconfig.json');
     const config = ts.readConfigFile(configPath, ts.sys.readFile);
@@ -481,7 +481,12 @@ describe('generated contract', () => {
     // Use the real web compiler configuration and built package export map, not
     // source aliases or relative generated-file imports. No web file is written.
     const fixture = `
-      import { getApplicationDescription, getApplicationName, getApplicationVersion } from '@mobey/shared';
+      import { getApplicationDescription, getApplicationName, getApplicationVersion, parseGameMoney, formatGameMoney, GAME_MONEY_MAX_MINOR, GameMoneyError } from '@mobey/shared';
+      export const parsedMoney: bigint = parseGameMoney('007.5');
+      export const formattedMoney: string = formatGameMoney(parsedMoney);
+      export const maximumMoney: bigint = GAME_MONEY_MAX_MINOR;
+      export const conversionError: Error = new GameMoneyError('FORMAT');
+      export const conversionCode: 'EMPTY' | 'FORMAT' | 'TOO_LARGE' | 'NEGATIVE' = new GameMoneyError('EMPTY').code;
       import type { DecimalMoney, ProblemDetails, HealthControllerLiveResponse, VersionControllerVersionResponse } from '@mobey/shared';
       export const money: DecimalMoney = '9007199254740993';
       export const status: Extract<ProblemDetails, { code: 'STATE_CONFLICT' }>['status'] = 409;
@@ -517,7 +522,41 @@ describe('generated contract', () => {
         (diagnostic) => diagnostic.code,
       ),
     ).toEqual([2741]);
+    for (const invalid of [
+      fixture.replace("parseGameMoney('007.5')", 'parseGameMoney(7.5)'),
+      fixture.replace('formatGameMoney(parsedMoney)', 'formatGameMoney(750)'),
+      fixture.replace("new GameMoneyError('FORMAT')", "new GameMoneyError('INVALID')"),
+    ]) {
+      expect(diagnostics(invalid).map((diagnostic) => diagnostic.code)).toEqual([2345]);
+    }
   }, 30_000);
+
+  test('compiled shared package root exposes exact money conversion and coded errors', () => {
+    const result = spawnSync(
+      process.execPath,
+      [
+        '--input-type=module',
+        '--eval',
+        `
+          import assert from 'node:assert/strict';
+          import { parseGameMoney, formatGameMoney, GAME_MONEY_MAX_MINOR, GameMoneyError } from '@mobey/shared';
+          assert.equal(GAME_MONEY_MAX_MINOR, 99999999999999999n);
+          assert.equal(parseGameMoney('007.5'), 750n);
+          assert.equal(formatGameMoney(750n), '7.50');
+          assert.equal(parseGameMoney('999999999999999.99'), GAME_MONEY_MAX_MINOR);
+          assert.equal(formatGameMoney(GAME_MONEY_MAX_MINOR), '999999999999999.99');
+          assert.throws(() => parseGameMoney('1\\n'), GameMoneyError);
+          assert.throws(() => parseGameMoney(''), { name: 'GameMoneyError', code: 'EMPTY' });
+          assert.throws(() => parseGameMoney('1e2'), { code: 'FORMAT' });
+          assert.throws(() => formatGameMoney(-1n), { code: 'NEGATIVE' });
+          assert.throws(() => formatGameMoney(GAME_MONEY_MAX_MINOR + 1n), { code: 'TOO_LARGE' });
+        `,
+      ],
+      { encoding: 'utf8', timeout: 10_000 },
+    );
+    expect(result.status, result.stderr).toBe(0);
+    expect(result.stderr).toBe('');
+  });
 
   test('compiled production bootstrap serves version, health, and redacted problems with correlation headers', () => {
     const result = spawnSync(
