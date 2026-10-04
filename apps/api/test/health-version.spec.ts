@@ -1,5 +1,9 @@
 import type { NestFastifyApplication } from '@nestjs/platform-fastify';
-import { getApplicationName, getApplicationVersion } from '@mobey/shared';
+import {
+  getApplicationDescription,
+  getApplicationName,
+  getApplicationVersion,
+} from '@mobey/shared';
 import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
@@ -26,6 +30,7 @@ describe('GET /api/v1/version', () => {
     expect(response.json()).toEqual({
       version: getApplicationVersion(),
       name: getApplicationName(),
+      description: getApplicationDescription(),
     });
     expect(response.headers['cache-control']).toBe('no-store');
   });

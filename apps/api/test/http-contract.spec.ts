@@ -9,7 +9,11 @@ import { ApiBody, ApiOkResponse } from '@nestjs/swagger';
 import { Test } from '@nestjs/testing';
 import { Ajv } from 'ajv';
 import type { FastifyInstance } from 'fastify';
-import { getApplicationName, getApplicationVersion } from '@mobey/shared';
+import {
+  getApplicationDescription,
+  getApplicationName,
+  getApplicationVersion,
+} from '@mobey/shared';
 import ts from 'typescript';
 import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 
@@ -377,6 +381,7 @@ describe('HTTP contract', () => {
     expect(response.json()).toEqual({
       version: getApplicationVersion(),
       name: getApplicationName(),
+      description: getApplicationDescription(),
     });
     expect(response.headers['cache-control']).toBe('no-store');
   });
@@ -476,14 +481,15 @@ describe('generated contract', () => {
     // Use the real web compiler configuration and built package export map, not
     // source aliases or relative generated-file imports. No web file is written.
     const fixture = `
-      import { getApplicationName, getApplicationVersion } from '@mobey/shared';
+      import { getApplicationDescription, getApplicationName, getApplicationVersion } from '@mobey/shared';
       import type { DecimalMoney, ProblemDetails, HealthControllerLiveResponse, VersionControllerVersionResponse } from '@mobey/shared';
       export const money: DecimalMoney = '9007199254740993';
       export const status: Extract<ProblemDetails, { code: 'STATE_CONFLICT' }>['status'] = 409;
       export const health: HealthControllerLiveResponse = { status: 'ok' };
       export const name: string = getApplicationName();
       export const version: string = getApplicationVersion();
-      export const applicationIdentity: VersionControllerVersionResponse = { name, version };
+      export const description: string = getApplicationDescription();
+      export const applicationIdentity: VersionControllerVersionResponse = { name, version, description };
     `;
     const diagnostics = (source: string): readonly ts.Diagnostic[] => {
       const host = ts.createCompilerHost(parsed.options);
@@ -502,7 +508,12 @@ describe('generated contract', () => {
       ),
     ).toEqual([2322, 2322]);
     expect(
-      diagnostics(fixture.replace('{ name, version }', '{ version }')).map(
+      diagnostics(
+        fixture.replace('{ name, version, description }', '{ version, description }'),
+      ).map((diagnostic) => diagnostic.code),
+    ).toEqual([2741]);
+    expect(
+      diagnostics(fixture.replace('{ name, version, description }', '{ name, version }')).map(
         (diagnostic) => diagnostic.code,
       ),
     ).toEqual([2741]);
@@ -538,7 +549,11 @@ describe('generated contract', () => {
       {
         status: 200,
         headers: { 'x-request-id': REQUEST_ID, 'cache-control': 'no-store' },
-        body: { version: getApplicationVersion(), name: getApplicationName() },
+        body: {
+          version: getApplicationVersion(),
+          name: getApplicationName(),
+          description: getApplicationDescription(),
+        },
       },
       { status: 200, headers: { 'x-request-id': REQUEST_ID }, body: { status: 'ok' } },
       {
@@ -579,8 +594,12 @@ describe('generated contract', () => {
       'string',
     );
     expect(versionResponse).toHaveProperty(
+      'content.application/json.schema.properties.description.type',
+      'string',
+    );
+    expect(versionResponse).toHaveProperty(
       'content.application/json.schema.required',
-      expect.arrayContaining(['version', 'name']),
+      expect.arrayContaining(['version', 'name', 'description']),
     );
     expect(versionResponse).toHaveProperty(
       'content.application/json.schema.additionalProperties',
