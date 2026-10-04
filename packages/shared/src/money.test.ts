@@ -1,6 +1,13 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, expectTypeOf, it } from 'vitest';
 
-import { formatGameMoney, GAME_MONEY_MAX_MINOR, GameMoneyError, parseGameMoney } from './index.js';
+import {
+  addGameMoney,
+  formatGameMoney,
+  GAME_MONEY_MAX_MINOR,
+  GameMoneyError,
+  parseGameMoney,
+  subtractGameMoney,
+} from './index.js';
 
 function expectMoneyError(action: () => unknown, code: GameMoneyError['code']): void {
   expect(action).toThrow(GameMoneyError);
@@ -8,6 +15,20 @@ function expectMoneyError(action: () => unknown, code: GameMoneyError['code']): 
 }
 
 describe('GameMoneyError diagnostics', () => {
+  it('preserves literal constructor codes alongside the extended error-code union', () => {
+    const empty = new GameMoneyError('EMPTY');
+    const insufficient = new GameMoneyError('INSUFFICIENT');
+    expectTypeOf(empty.code).toEqualTypeOf<'EMPTY'>();
+    expectTypeOf(insufficient.code).toEqualTypeOf<'INSUFFICIENT'>();
+    expect(empty.code).toBe('EMPTY');
+    expect(insufficient.code).toBe('INSUFFICIENT');
+    expect(insufficient).toBeInstanceOf(Error);
+    expect(insufficient).toMatchObject({
+      name: 'GameMoneyError',
+      message: 'Invalid Game Money amount (INSUFFICIENT).',
+    });
+  });
+
   it.each([
     ['synthetic-private-amount', 'FORMAT'],
     ['1234567890123456.78', 'TOO_LARGE'],
@@ -88,6 +109,120 @@ describe('parseGameMoney', () => {
       expectMoneyError(() => parseGameMoney(input), 'TOO_LARGE');
     },
   );
+});
+
+describe('addGameMoney', () => {
+  it.each([
+    [1n, 2n, 3n],
+    [0n, 0n, 0n],
+    [0n, GAME_MONEY_MAX_MINOR, GAME_MONEY_MAX_MINOR],
+    [GAME_MONEY_MAX_MINOR, 0n, GAME_MONEY_MAX_MINOR],
+    [GAME_MONEY_MAX_MINOR - 1n, 1n, GAME_MONEY_MAX_MINOR],
+    [9007199254740992n, 1n, 9007199254740993n],
+  ] as const)('adds %s and %s exactly to %s minor units', (a, b, expected) => {
+    expect(addGameMoney(a, b)).toBe(expected);
+  });
+
+  it.each([
+    [1n, GAME_MONEY_MAX_MINOR],
+    [GAME_MONEY_MAX_MINOR, 1n],
+    [GAME_MONEY_MAX_MINOR, GAME_MONEY_MAX_MINOR],
+  ] as const)('rejects the overflowing sum of %s and %s with TOO_LARGE', (a, b) => {
+    expectMoneyError(() => addGameMoney(a, b), 'TOO_LARGE');
+  });
+
+  it('parses, adds, and formats 0.10 plus 0.20 exactly as 0.30', () => {
+    expect(formatGameMoney(addGameMoney(parseGameMoney('0.10'), parseGameMoney('0.20')))).toBe(
+      '0.30',
+    );
+  });
+});
+
+describe('subtractGameMoney', () => {
+  it.each([
+    [3n, 2n, 1n],
+    [2n, 2n, 0n],
+    [0n, 0n, 0n],
+    [GAME_MONEY_MAX_MINOR, 0n, GAME_MONEY_MAX_MINOR],
+    [GAME_MONEY_MAX_MINOR, GAME_MONEY_MAX_MINOR, 0n],
+    [GAME_MONEY_MAX_MINOR, 1n, GAME_MONEY_MAX_MINOR - 1n],
+    [9007199254740993n, 9007199254740992n, 1n],
+  ] as const)('subtracts %s minus %s exactly to %s minor units', (a, b, expected) => {
+    expect(subtractGameMoney(a, b)).toBe(expected);
+  });
+
+  it.each([
+    [2n, 3n],
+    [0n, 1n],
+    [0n, GAME_MONEY_MAX_MINOR],
+  ] as const)('rejects subtracting %s minus %s with INSUFFICIENT', (a, b) => {
+    expectMoneyError(() => subtractGameMoney(a, b), 'INSUFFICIENT');
+  });
+});
+
+describe('checked arithmetic pair boundaries', () => {
+  const amounts = [
+    1n,
+    99n,
+    100n,
+    9007199254740991n,
+    9007199254740992n,
+    9007199254740993n,
+    GAME_MONEY_MAX_MINOR / 2n,
+    GAME_MONEY_MAX_MINOR / 2n + 1n,
+    GAME_MONEY_MAX_MINOR - 1n,
+  ];
+
+  it('preserves both operands through exact addition and subtraction across boundary pairs', () => {
+    for (const a of amounts) {
+      for (const b of amounts) {
+        const expectedSum = a + b;
+        if (expectedSum <= GAME_MONEY_MAX_MINOR) {
+          const sum = addGameMoney(a, b);
+          expect(sum).toBe(expectedSum);
+          expect(subtractGameMoney(sum, b)).toBe(a);
+          expect(subtractGameMoney(sum, a)).toBe(b);
+        }
+      }
+    }
+  });
+
+  it('rejects overflow when neither operand alone reaches the maximum', () => {
+    for (const a of amounts) {
+      for (const b of amounts) {
+        if (a + b > GAME_MONEY_MAX_MINOR) {
+          expectMoneyError(() => addGameMoney(a, b), 'TOO_LARGE');
+        }
+      }
+    }
+  });
+});
+
+describe.each([
+  ['addGameMoney', addGameMoney],
+  ['subtractGameMoney', subtractGameMoney],
+] as const)('%s operand validation', (_name, operation) => {
+  it.each([
+    [-1n, 0n],
+    [0n, -1n],
+    [-1n, 1n],
+    [1n, -1n],
+    [-GAME_MONEY_MAX_MINOR, GAME_MONEY_MAX_MINOR],
+    [GAME_MONEY_MAX_MINOR, -GAME_MONEY_MAX_MINOR],
+  ] as const)('rejects operands (%s, %s) with NEGATIVE before arithmetic', (a, b) => {
+    expectMoneyError(() => operation(a, b), 'NEGATIVE');
+  });
+
+  it.each([
+    [GAME_MONEY_MAX_MINOR + 1n, 0n],
+    [0n, GAME_MONEY_MAX_MINOR + 1n],
+    [GAME_MONEY_MAX_MINOR + 1n, GAME_MONEY_MAX_MINOR],
+    [GAME_MONEY_MAX_MINOR, GAME_MONEY_MAX_MINOR + 1n],
+    [10n ** 100n, 1n],
+    [1n, 10n ** 100n],
+  ] as const)('rejects operands (%s, %s) with TOO_LARGE before arithmetic', (a, b) => {
+    expectMoneyError(() => operation(a, b), 'TOO_LARGE');
+  });
 });
 
 describe('formatGameMoney', () => {

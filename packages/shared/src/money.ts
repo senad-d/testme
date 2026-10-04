@@ -1,10 +1,11 @@
-// Standalone conversion bound, not an approved durable Reward Balance ceiling (OQ-11).
+// Standalone utility bound, not an approved durable Reward Balance ceiling (OQ-11).
 export const GAME_MONEY_MAX_MINOR = 99999999999999999n;
 
-type GameMoneyErrorCode = 'EMPTY' | 'FORMAT' | 'TOO_LARGE' | 'NEGATIVE';
+type GameMoneyErrorCode = 'EMPTY' | 'FORMAT' | 'TOO_LARGE' | 'NEGATIVE' | 'INSUFFICIENT';
 
-export class GameMoneyError extends Error {
-  constructor(public readonly code: GameMoneyErrorCode) {
+// Preserve the literal constructor code for consumers as the supported union grows.
+export class GameMoneyError<Code extends GameMoneyErrorCode = GameMoneyErrorCode> extends Error {
+  constructor(public readonly code: Code) {
     super(`Invalid Game Money amount (${code}).`);
     this.name = 'GameMoneyError';
   }
@@ -30,14 +31,41 @@ export function parseGameMoney(input: string): bigint {
   return BigInt(integer) * 100n + BigInt(fraction.padEnd(2, '0'));
 }
 
-/** Format minor units canonically; this does not format the API's integer transport. */
-export function formatGameMoney(minorUnits: bigint): string {
+function validateGameMoney(minorUnits: bigint): void {
   if (minorUnits < 0n) {
     throw new GameMoneyError('NEGATIVE');
   }
   if (minorUnits > GAME_MONEY_MAX_MINOR) {
     throw new GameMoneyError('TOO_LARGE');
   }
+}
+
+/** Add minor units exactly, rejecting invalid operands and an out-of-bounds sum. */
+export function addGameMoney(a: bigint, b: bigint): bigint {
+  validateGameMoney(a);
+  validateGameMoney(b);
+
+  const sum = a + b;
+  if (sum > GAME_MONEY_MAX_MINOR) {
+    throw new GameMoneyError('TOO_LARGE');
+  }
+  return sum;
+}
+
+/** Subtract minor units exactly, rejecting invalid operands and insufficient funds. */
+export function subtractGameMoney(a: bigint, b: bigint): bigint {
+  validateGameMoney(a);
+  validateGameMoney(b);
+
+  if (b > a) {
+    throw new GameMoneyError('INSUFFICIENT');
+  }
+  return a - b;
+}
+
+/** Format minor units canonically; this does not format the API's integer transport. */
+export function formatGameMoney(minorUnits: bigint): string {
+  validateGameMoney(minorUnits);
 
   const integer = minorUnits / 100n;
   const fraction = (minorUnits % 100n).toString().padStart(2, '0');
