@@ -8,6 +8,7 @@ export {
   multiplyGameMoney,
   parseGameMoney,
   subtractGameMoney,
+  sumGameMoney,
 } from './money.js';
 
 const APPLICATION_DESCRIPTION = 'Mobey family learning and rewards';

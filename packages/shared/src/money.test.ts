@@ -8,6 +8,7 @@ import {
   multiplyGameMoney,
   parseGameMoney,
   subtractGameMoney,
+  sumGameMoney,
 } from './index.js';
 
 function expectMoneyError(action: () => unknown, code: GameMoneyError['code']): void {
@@ -134,6 +135,77 @@ describe('addGameMoney', () => {
 
   it('parses, adds, and formats 0.10 plus 0.20 exactly as 0.30', () => {
     expect(formatGameMoney(addGameMoney(parseGameMoney('0.10'), parseGameMoney('0.20')))).toBe(
+      '0.30',
+    );
+  });
+});
+
+describe('sumGameMoney', () => {
+  it('exposes a readonly bigint array input and bigint result through the package root', () => {
+    expectTypeOf(sumGameMoney).parameters.toEqualTypeOf<[readonly bigint[]]>();
+    expectTypeOf(sumGameMoney).returns.toEqualTypeOf<bigint>();
+  });
+
+  it.each([
+    [[], 0n],
+    [[250n], 250n],
+    [[100n, 200n, 300n], 600n],
+    [[0n, 0n, 0n], 0n],
+    [[GAME_MONEY_MAX_MINOR], GAME_MONEY_MAX_MINOR],
+    [[0n, GAME_MONEY_MAX_MINOR, 0n], GAME_MONEY_MAX_MINOR],
+    [[GAME_MONEY_MAX_MINOR - 2n, 1n, 1n], GAME_MONEY_MAX_MINOR],
+    [[9007199254740992n, 1n], 9007199254740993n],
+    [[9007199254740993n, 1n, 1n], 9007199254740995n],
+  ] as const)('sums %s exactly to %s minor units', (amounts, expected) => {
+    expect(sumGameMoney(amounts)).toBe(expected);
+  });
+
+  it.each([
+    [[GAME_MONEY_MAX_MINOR, 1n]],
+    [[1n, GAME_MONEY_MAX_MINOR]],
+    [[GAME_MONEY_MAX_MINOR - 1n, 1n, 1n]],
+  ] as const)('rejects an overflowing total for %s with TOO_LARGE', (amounts) => {
+    expectMoneyError(() => sumGameMoney(amounts), 'TOO_LARGE');
+  });
+
+  it.each([[[-1n]], [[1n, -1n]], [[-1n, 1n]], [[0n, 0n, -1n]]] as const)(
+    'rejects a negative element in %s with NEGATIVE',
+    (amounts) => {
+      expectMoneyError(() => sumGameMoney(amounts), 'NEGATIVE');
+    },
+  );
+
+  it.each([
+    [[GAME_MONEY_MAX_MINOR + 1n]],
+    [[0n, GAME_MONEY_MAX_MINOR + 1n]],
+    [[10n ** 100n, 0n]],
+  ] as const)('rejects an oversized element in %s with TOO_LARGE', (amounts) => {
+    expectMoneyError(() => sumGameMoney(amounts), 'TOO_LARGE');
+  });
+
+  it('validates every element before any arithmetic, even after an overflowing prefix', () => {
+    expectMoneyError(() => sumGameMoney([GAME_MONEY_MAX_MINOR, 1n, -1n]), 'NEGATIVE');
+  });
+
+  it('sums a frozen readonly list without changing its elements', () => {
+    const amounts = Object.freeze([100n, 200n, 300n]);
+    expect(sumGameMoney(amounts)).toBe(600n);
+    expect(amounts).toEqual([100n, 200n, 300n]);
+  });
+
+  it.each([
+    [[GAME_MONEY_MAX_MINOR, 1n, -1n], 'NEGATIVE'],
+    [[GAME_MONEY_MAX_MINOR, 1n], 'TOO_LARGE'],
+  ] as const)('preserves a mutable list %s when summation fails with %s', (input, code) => {
+    const amounts = [...input];
+    const original = [...amounts];
+
+    expect(() => sumGameMoney(amounts)).toThrow(new GameMoneyError(code));
+    expect(amounts).toEqual(original);
+  });
+
+  it('parses, sums, and formats 0.10 plus 0.20 exactly as 0.30', () => {
+    expect(formatGameMoney(sumGameMoney([parseGameMoney('0.10'), parseGameMoney('0.20')]))).toBe(
       '0.30',
     );
   });

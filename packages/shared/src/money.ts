@@ -52,6 +52,19 @@ export function addGameMoney(a: bigint, b: bigint): bigint {
   return sum;
 }
 
+/** Validate every amount before accumulating minor units with checked addition. */
+export function sumGameMoney(amounts: readonly bigint[]): bigint {
+  for (const amount of amounts) {
+    validateGameMoney(amount);
+  }
+
+  let total = 0n;
+  for (const amount of amounts) {
+    total = addGameMoney(total, amount);
+  }
+  return total;
+}
+
 /** Subtract minor units exactly, rejecting invalid operands and insufficient funds. */
 export function subtractGameMoney(a: bigint, b: bigint): bigint {
   validateGameMoney(a);
