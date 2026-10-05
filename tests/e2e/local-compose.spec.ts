@@ -1,4 +1,5 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
+import { randomUUID } from 'node:crypto';
 import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -6,7 +7,7 @@ import { fileURLToPath } from 'node:url';
 import { expect, test } from '@playwright/test';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
-const project = `mobey-compose-test-${process.pid.toString()}`;
+const project = `mobey-compose-test-${randomUUID()}`;
 let directory: string;
 let webUrl: string;
 let watcher: ChildProcess | undefined;
@@ -84,8 +85,9 @@ test.beforeAll(async () => {
     await cp(join(root, path), join(directory, path), {
       recursive: true,
       filter: (source) =>
-        !/^(?:\.env(?:\..*)?|\.pi|\.git|\.DS_Store|node_modules)$/.test(basename(source)) &&
-        !/\.(?:pem|key|log)$/.test(source),
+        !/^(?:\.env(?:\..*)?|\.pi|\.git|\.DS_Store|node_modules|\.aws|\.azure|\.oci|\.ssh|\.config|\.npmrc|\.netrc|\.pgpass|\.git-credentials|credentials|dist|coverage|test-results)$/.test(
+          basename(source),
+        ) && !/\.(?:pem|key|p12|pfx|log|tsbuildinfo)$/.test(source),
     });
   }
   // Synthetic canaries only. Invalid default Compose selection must never be read.
@@ -96,6 +98,13 @@ test.beforeAll(async () => {
   await mkdir(join(directory, '.pi'));
   await writeFile(join(directory, '.pi', 'canary'), 'synthetic-agent-state-canary');
   await writeFile(join(directory, 'apps/web/src/.env'), 'nested-env-canary');
+  await mkdir(join(directory, 'apps/web/src/.aws'));
+  await writeFile(join(directory, 'apps/web/src/.aws/credentials'), 'synthetic-credential-canary');
+  await mkdir(join(directory, 'apps/api/src/.ssh'));
+  await writeFile(join(directory, 'apps/api/src/.ssh/id_ed25519'), 'synthetic-key-canary');
+  await mkdir(join(directory, 'apps/web/src/coverage'));
+  await writeFile(join(directory, 'apps/web/src/coverage/canary'), 'synthetic-output-canary');
+  await writeFile(join(directory, 'apps/web/src/private.p12'), 'synthetic-certificate-canary');
   await writeFile(
     join(directory, 'ports.yaml'),
     `services:
@@ -105,7 +114,8 @@ test.beforeAll(async () => {
     ports: !override ['127.0.0.1::5173']
 `,
   );
-  expect(compose(['config', '--environment'])).not.toContain('host-env-canary');
+  // Inspect only the inline service model, never Compose's inherited environment dump.
+  expect(compose(['config', '--format', 'json'])).not.toContain('host-env-canary');
   // Exercise the documented up --build --watch lifecycle, not a host dependency install.
   watcher = spawn('docker', composeArgs(['up', '--build', '--watch']), {
     cwd: directory,
@@ -131,7 +141,13 @@ test.beforeAll(async () => {
       },
       { timeout: 480_000 },
     )
-    .toBe(true);
+    .toBe(true)
+    .catch((cause: unknown) => {
+      // The isolated stack contains synthetic values only; retain bounded build diagnostics.
+      throw new Error(`Compose startup did not complete:\n${watchOutput.slice(-20_000)}`, {
+        cause,
+      });
+    });
   await expect
     .poll(
       async () => {
@@ -258,6 +274,9 @@ test('web HMR and API source restart change responses without rebuilding images'
 test('database survives recreation and failed migrations block API startup', async () => {
   test.setTimeout(180_000);
   const checksum = sql('SELECT checksum FROM mobey_platform.migrations WHERE position = 1');
+  const appliedAt = sql(
+    'SELECT applied_at::text FROM mobey_platform.migrations WHERE position = 1',
+  );
   try {
     // Only the disposable test database is altered; production migrations stay immutable.
     sql(`UPDATE mobey_platform.migrations SET checksum = repeat('0', 64) WHERE position = 1`);
@@ -277,6 +296,10 @@ test('database survives recreation and failed migrations block API startup', asy
     compose(['up', '-d', '--wait', '--wait-timeout', '120']);
   }
   expect(sql('SELECT checksum FROM mobey_platform.migrations WHERE position = 1')).toBe(checksum);
+  // A fresh database can recreate the same checksum/count, but not this original timestamp.
+  expect(sql('SELECT applied_at::text FROM mobey_platform.migrations WHERE position = 1')).toBe(
+    appliedAt,
+  );
   expect(sql('SELECT count(*) FROM mobey_platform.migrations')).toBe('1');
   expect(
     (await fetch(`http://${compose(['port', 'web', '5173'])}/api/v1/health/ready`)).status,
@@ -290,7 +313,9 @@ test('build context excludes canaries and production stages are non-root and run
     ['build', '-t', `${project}-context`, '-f', '-', '.'],
     `FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
 COPY . /context
-RUN test ! -e /context/.env && test ! -e /context/.pi && test ! -e /context/apps/web/src/.env && test ! -e /context/ports.yaml
+RUN test ! -e /context/.env && test ! -e /context/.pi && test ! -e /context/apps/web/src/.env && test ! -e /context/ports.yaml \\
+    && test ! -e /context/apps/web/src/.aws && test ! -e /context/apps/api/src/.ssh \\
+    && test ! -e /context/apps/web/src/coverage && test ! -e /context/apps/web/src/private.p12
 `,
   );
   for (const service of ['api', 'web']) {

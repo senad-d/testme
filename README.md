@@ -45,7 +45,8 @@ Use `--env-file /dev/null` on **every** Compose invocation (POSIX/macOS/Linux;
 Windows users can use WSL). Plain `docker compose` implicitly reads root `.env`.
 No `env_file`, host variable interpolation, whole-checkout mount, or real
 participant configuration is used. `.dockerignore` allowlists build inputs and
-excludes `.env`, `.pi`, private keys and generated artifacts even within source.
+excludes `.env`, `.pi`, credential directories/files, private keys and generated
+artifacts even within source.
 Compose's inline `mobey-development-only-*` values are intentionally public,
 synthetic local configuration, **not production secrets**. Never replace them with
 participant data or deploy this stack. The API rejects these values and
@@ -99,8 +100,8 @@ With the pinned host Node/pnpm versions and Docker running:
 
 ```sh
 pnpm install --frozen-lockfile
-pnpm --filter @mobey/e2e exec playwright install chromium
-pnpm test:compose
+PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" pnpm --filter @mobey/e2e exec playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" pnpm test:compose
 pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts
 ```
 

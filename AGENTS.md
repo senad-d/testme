@@ -126,7 +126,7 @@ The local health slice runs with `docker compose --env-file /dev/null up --build
 
 The Compose stack provides `web`, `api`, `db`, and one-shot `migrate`, web HMR/API source sync-and-restart, health/migration ordering and persistent local DB storage. Use only its explicit synthetic development configuration. Always supply `--env-file /dev/null`; never implicitly read the ignored root `.env`, synchronize `.pi`, use participant data, or select local development-secret/cookie modes outside development. Production stages use frozen dependencies and non-root runtime users. The rejection guard is not authentication implementation or OQ approval.
 
-No family/content seed exists yet: the requirement and evidence remain with Tasks 16/#25 and 24/#33 after their schema/content approvals, as recorded in Task 11/#20 and the authoritative plan/specification. Do not claim migrations or a no-op command satisfy seed acceptance. Tests and commands are registered in [docs/testing.md](docs/testing.md).
+No family/content seed exists yet: the requirement and evidence remain with Tasks 16/#25 and 24/#33 after their schema/content approvals, as recorded in Task 11/#20 and the authoritative plan/specification. Do not claim migrations or a no-op command satisfy seed acceptance. Tests and commands are registered in [docs/testing.md](docs/testing.md). Browser binaries can be installed under ignored `node_modules/.playwright-browsers`; use the same absolute `PLAYWRIGHT_BROWSERS_PATH` for installation and verification, as shown in the README.
 
 When runnable commands are added, update this file and the relevant README in the same pull request using commands verified against the changed repository.
 
