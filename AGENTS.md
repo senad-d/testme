@@ -69,7 +69,7 @@ tests/e2e/                        critical Playwright journeys
 infra/terraform/bootstrap/        remote-state prerequisites
 infra/terraform/modules/          AWS modules
 infra/terraform/environments/     nonprod and prod roots
-.github/                          future templates and workflows
+.github/                          issue/PR templates, CODEOWNERS; future workflows
 compose.yaml                      future local stack
 ```
 
@@ -176,12 +176,14 @@ Never weaken, skip, mock away, quarantine, or relabel a required check to obtain
 
 ## 9. GitHub delivery workflow
 
-The intended workflow is issue → branch → focused commits → pull request → independent review → squash merge. GitHub templates, branch protection, CODEOWNERS, and workflows do not exist yet; do not claim repository settings are enforced until verified. Do not invent maintainer or team handles for ownership rules.
+The delivery convention is issue → branch → focused commits → pull request → independent review → squash merge. Use [the MVP issue form](.github/ISSUE_TEMPLATE/mvp-task.yml) and [the pull-request template](.github/pull_request_template.md), following the [plan conventions](docs/plans/mobey-mvp-implementation-plan.md#github-issue-branch-commit-and-pull-request-conventions) and Task 15 (`U-23`). The issue form requires each evidence/scope field; PR Markdown supplies mandatory completion prompts, not automated validation. Complete every section or explain why it is inapplicable.
 
-- **Issue:** one approved implementation-plan task per issue, titled `[MVP][P<phase>] <task outcome>`. Include task number, `REQ-*`/`OQ-*` trace, dependencies, complete exact-file manifest, acceptance criteria, privacy/security impact, migration/rollback effect, and required evidence.
+[CODEOWNERS](.github/CODEOWNERS) assigns every path—including application, content, privacy, workflow, and Terraform paths—to `@senad-d`. The repository owner approved this single owner and confirmed repository write access in issue #24 (objective 240). Do not invent additional maintainer/team handles. Ownership files do not establish required-review, status-check, or protected-main enforcement: obtain external repository-settings evidence separately. This task does not configure settings or supply CI workflows.
+
+- **Issue:** one approved implementation-plan task per issue, titled `[MVP][P<phase>] <task outcome>`. Include task/phase, applicable `REQ-*`/`U-*`/`OQ-*` trace and source sections, dated decision-record links or explicit unresolved blockers, dependencies and readiness, complete exact-file manifest including companion paths, acceptance criteria and required evidence, privacy/security impact, migration/rollback effect, and later-work exclusion. Amend the issue before expanding scope.
 - **Branch:** after the issue is ready, update from `main` and create `feat/<issue>-<slug>`, `fix/<issue>-<slug>`, `infra/<issue>-<slug>`, `test/<issue>-<slug>`, or `docs/<issue>-<slug>`. Branch protection is intended but must be verified separately.
 - **Commit:** use a Conventional Commit subject, for example `feat(learning): persist placement outcome`, and include `Refs #<issue>` in the body. Keep commits reviewable and truthful about evidence.
-- **Pull request:** use a Conventional Commit title and `Closes #<issue>`. List requirement traces, exact changed paths, evidence, migrations/rollback, and threat/privacy effects. UI evidence uses synthetic data; concurrency evidence includes database assertions.
+- **Pull request:** use a Conventional Commit title and `Closes #<issue>`. Complete the template's trace, decisions, dependencies, exact changed paths and companion review, exclusions, criterion-to-evidence mapping, migrations/rollback, and threat/privacy fields. Record the tested commit, pinned toolchain, isolated effective targets, failures and limitations. UI evidence uses synthetic data; concurrency evidence includes real-PostgreSQL assertions. Record independent-review evidence honestly; pending review is not approval.
 - **Review and merge:** no direct push to `main`; require independent review and all applicable checks. Resolve generated contract, migration, and Terraform plan changes in review. Squash merge. Production requires a separate manual approver through the protected `production` Environment once that environment exists.
 
 Do not combine independent issues to reduce pull-request count. Tasks outside plan items 1–51 are not approved as MVP merely because they seem useful.

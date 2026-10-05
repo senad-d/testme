@@ -1,0 +1,7 @@
+# Repository owner approved @senad-d for all paths and confirmed write access
+# to senad-d/testme in issue #24 (objective 240).
+# The catch-all includes applications, content, privacy code/docs, workflows,
+# and Terraform, including future paths. Do not narrow it to today's tree.
+# Review ownership only: required review/branch protection must be configured
+# and verified separately in repository settings; this file does not enforce it.
+* @senad-d
