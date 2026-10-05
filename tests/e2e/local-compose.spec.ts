@@ -90,6 +90,14 @@ test.beforeAll(async () => {
         ) && !/\.(?:pem|key|p12|pfx|log|tsbuildinfo)$/.test(source),
     });
   }
+  // Distinct synthetic package versions catch accidentally conflating the API
+  // reload endpoint with the shared application identity after integrating main.
+  const apiPackagePath = join(directory, 'apps/api/package.json');
+  const apiPackage = JSON.parse(await readFile(apiPackagePath, 'utf8')) as Record<string, unknown>;
+  await writeFile(
+    apiPackagePath,
+    `${JSON.stringify({ ...apiPackage, version: '0.0.0-compose-test' }, null, 2)}\n`,
+  );
   // Synthetic canaries only. Invalid default Compose selection must never be read.
   await writeFile(
     join(directory, '.env'),
@@ -216,6 +224,49 @@ test('clean Compose migrates once and serves browser readiness with non-root ser
   expect(docker(['image', 'inspect', '--format', '{{.Config.User}}', image('migrate')])).toBe(
     'node',
   );
+});
+
+test('Compose proxy preserves both version identities and safe correlated HTTP failures', async () => {
+  const requestId = '26800000-0000-4000-8000-000000000001';
+  const apiPackage = JSON.parse(
+    await readFile(join(directory, 'apps/api/package.json'), 'utf8'),
+  ) as {
+    version: string;
+  };
+  const versions = [
+    ['/api/v1/health/version', { version: apiPackage.version }],
+    [
+      '/api/v1/version',
+      { version: '0.0.0', name: 'mobey', description: 'Mobey family learning and rewards' },
+    ],
+  ] as const;
+  for (const [route, identity] of versions) {
+    const response = await fetch(`${webUrl}${route}`, {
+      headers: { 'X-Request-Id': requestId },
+    });
+    expect(response.status).toBe(200);
+    expect(response.headers.get('content-type')).toContain('application/json');
+    expect(response.headers.get('cache-control')).toBe('no-store');
+    expect(response.headers.get('x-request-id')).toBe(requestId);
+    expect(await response.json()).toEqual(identity);
+  }
+
+  const response = await fetch(`${webUrl}/api/v1/synthetic-private-path-canary`, {
+    headers: { 'X-Request-Id': requestId },
+  });
+  expect(response.status).toBe(404);
+  expect(response.headers.get('content-type')).toContain('application/problem+json');
+  expect(response.headers.get('cache-control')).toBe('no-store');
+  expect(response.headers.get('x-request-id')).toBe(requestId);
+  expect(await response.json()).toEqual({
+    type: 'urn:mobey:problem:not-found',
+    title: 'Not found',
+    status: 404,
+    detail: 'The requested resource was not found.',
+    code: 'NOT_FOUND',
+    instance: `urn:mobey:request:${requestId}`,
+    requestId,
+  });
 });
 
 test('API development image builds its shared workspace prerequisite', async () => {

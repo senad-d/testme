@@ -621,8 +621,18 @@ describe('generated contract', () => {
     expect(Object.keys(document.paths).sort()).toEqual([
       '/api/v1/health/live',
       '/api/v1/health/ready',
+      '/api/v1/health/version',
       '/api/v1/version',
     ]);
+    expect(document.paths['/api/v1/health/version']?.get?.responses['200']).toHaveProperty(
+      'content.application/json.schema',
+      {
+        type: 'object',
+        additionalProperties: false,
+        required: ['version'],
+        properties: { version: { type: 'string' } },
+      },
+    );
     const versionResponse = document.paths['/api/v1/version']?.get?.responses['200'];
     expect(versionResponse).toHaveProperty(
       'content.application/json.schema.properties.version.type',
