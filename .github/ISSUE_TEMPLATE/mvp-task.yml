@@ -1,0 +1,105 @@
+name: MVP implementation task
+description: One approved Mobey implementation-plan task with exact scope and evidence.
+title: '[MVP][P<phase>] <task outcome>'
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Follow [AGENTS.md](https://github.com/senad-d/testme/blob/main/AGENTS.md) and the [implementation plan](https://github.com/senad-d/testme/blob/main/docs/plans/mobey-mvp-implementation-plan.md#github-issue-branch-commit-and-pull-request-conventions): branch from current main after readiness, use the prescribed issue branch names and Conventional Commits with `Refs #<issue>`, require independent review, and squash merge. No direct pushes to main. Repository files do not prove protected-main or required-review enforcement; verify settings separately.
+        Use only synthetic evidence. Never include participant data, credentials, secrets, raw tokens, or submitted answers. Complete every field; use "None — <reason>" where inapplicable, not a blank or unexplained N/A. MVP covers approved plan Tasks 1–51 only.
+  - type: textarea
+    id: trace
+    attributes:
+      label: Task and requirement trace
+      description: Name the phase and single plan task, applicable REQ-*, U-* and OQ-* identifiers, and authoritative document sections. Explain any inapplicable identifier group.
+      placeholder: 'Task <number>, Phase <number>; REQ-...; U-...; OQ-...; source paths and sections.'
+    validations:
+      required: true
+  - type: textarea
+    id: decisions
+    attributes:
+      label: Decision gates
+      description: List each needed OQ-* with an approved dated decision-record link and owner, or mark it unresolved and block dependent implementation. Never infer approval from issue closure or code.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies
+      description: 'Begin with "Depends on: #<issue>, ..." or "Depends on: none." Include dependency readiness evidence and any parent issue.'
+    validations:
+      required: true
+  - type: textarea
+    id: why
+    attributes:
+      label: Why
+      description: State the approved outcome and why this one task is needed.
+    validations:
+      required: true
+  - type: textarea
+    id: what
+    attributes:
+      label: What and how
+      description: Describe the smallest complete change and its owning domain/tooling boundary; do not introduce a new behavior, migration, infrastructure surface, or decision without amendment.
+    validations:
+      required: true
+  - type: textarea
+    id: where
+    attributes:
+      label: Where — complete exact-file manifest
+      description: List every exact path to add, modify, or remove, including tests, documentation and companion wiring. No directory globs. Account for generated API contracts, API module registration, router/page mounting, instruction inventory, exact test helpers/fixtures, and both Terraform environment roots when applicable. Explain inapplicable companions. Amend scope before coding newly discovered paths.
+    validations:
+      required: true
+  - type: textarea
+    id: exclusions
+    attributes:
+      label: Out of scope and later-work exclusion
+      description: Explicitly exclude independent tasks, post-pilot features, and unapproved product/OQ decisions; link separate owners/issues for necessary later work.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Give observable criteria tied to requirements, including denial, retry, concurrency and partial-failure behavior where relevant. Use a checklist.
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Required acceptance evidence
+      description: Map each criterion to reproducible commands/assertions and the isolated environment, pinned toolchain and exact commit to be tested. Include affected tests, contract checks, real-PostgreSQL concurrency assertions, synthetic responsive UI evidence, images or Terraform checks as applicable; explain exclusions and identify unverified/live-only evidence. Do not claim a dry run proves behavior or enforcement.
+    validations:
+      required: true
+  - type: textarea
+    id: migration
+    attributes:
+      label: Migration, compatibility and rollback impact
+      description: Name schema/data/API/infra compatibility changes, safe ordering, checked migrations and rollback/recovery steps, or explain why none apply. Never commit state/plans or rewrite applied migrations.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy and child-safety impact
+      description: Describe data collection, retention/deletion, consent and redaction effects, or explain why unchanged. Prohibit child identifiers, participant data and submitted answers in logs, fixtures and delivery evidence; use synthetic data only.
+    validations:
+      required: true
+  - type: textarea
+    id: security
+    attributes:
+      label: Security and authorization impact
+      description: Describe tenant/role/session boundaries, permissions, secret references and threat/denial tests, or explain why unchanged. Do not invent security thresholds or claim repository protection from files.
+    validations:
+      required: true
+  - type: checkboxes
+    id: readiness
+    attributes:
+      label: Readiness confirmation
+      options:
+        - label: This is one approved plan task with a complete exact-file manifest; unresolved decisions remain explicit blockers and no later work is included.
+          required: true
+        - label: Evidence will contain only synthetic data and no participant data, secrets, credentials, raw tokens or submitted answers.
+          required: true
+        - label: I will follow the linked branch/commit/independent-review/squash conventions and verify protected-main settings separately from repository files.
+          required: true
