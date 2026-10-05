@@ -5,6 +5,7 @@ export {
   formatGameMoney,
   GAME_MONEY_MAX_MINOR,
   GameMoneyError,
+  multiplyGameMoney,
   parseGameMoney,
   subtractGameMoney,
 } from './money.js';

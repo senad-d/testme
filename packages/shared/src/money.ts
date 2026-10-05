@@ -63,6 +63,20 @@ export function subtractGameMoney(a: bigint, b: bigint): bigint {
   return a - b;
 }
 
+/** Scale valid minor units by a non-negative bigint factor within the utility bound. */
+export function multiplyGameMoney(amount: bigint, factor: bigint): bigint {
+  validateGameMoney(amount);
+  if (factor < 0n) {
+    throw new GameMoneyError('NEGATIVE');
+  }
+
+  const product = amount * factor;
+  if (product > GAME_MONEY_MAX_MINOR) {
+    throw new GameMoneyError('TOO_LARGE');
+  }
+  return product;
+}
+
 /** Format minor units canonically; this does not format the API's integer transport. */
 export function formatGameMoney(minorUnits: bigint): string {
   validateGameMoney(minorUnits);

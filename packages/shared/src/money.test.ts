@@ -5,6 +5,7 @@ import {
   formatGameMoney,
   GAME_MONEY_MAX_MINOR,
   GameMoneyError,
+  multiplyGameMoney,
   parseGameMoney,
   subtractGameMoney,
 } from './index.js';
@@ -157,6 +158,87 @@ describe('subtractGameMoney', () => {
     [0n, GAME_MONEY_MAX_MINOR],
   ] as const)('rejects subtracting %s minus %s with INSUFFICIENT', (a, b) => {
     expectMoneyError(() => subtractGameMoney(a, b), 'INSUFFICIENT');
+  });
+});
+
+describe('multiplyGameMoney', () => {
+  it('exposes bigint-only amount, factor, and result types through the package root', () => {
+    expectTypeOf(multiplyGameMoney).parameters.toEqualTypeOf<[bigint, bigint]>();
+    expectTypeOf(multiplyGameMoney).returns.toEqualTypeOf<bigint>();
+  });
+
+  const thresholdFactors = [
+    7n,
+    10n,
+    97n,
+    9007199254740991n,
+    9007199254740992n,
+    9007199254740993n,
+    GAME_MONEY_MAX_MINOR - 1n,
+  ];
+
+  it('preserves exact products at the last valid amount for varied bigint factors', () => {
+    for (const factor of thresholdFactors) {
+      const amount = GAME_MONEY_MAX_MINOR / factor;
+      const expected = GAME_MONEY_MAX_MINOR - (GAME_MONEY_MAX_MINOR % factor);
+      expect(multiplyGameMoney(amount, factor)).toBe(expected);
+    }
+  });
+
+  it('rejects the first overflowing amount for varied bigint factors', () => {
+    for (const factor of thresholdFactors) {
+      const amount = GAME_MONEY_MAX_MINOR / factor + 1n;
+      expectMoneyError(() => multiplyGameMoney(amount, factor), 'TOO_LARGE');
+    }
+  });
+
+  it.each([
+    [250n, 3n, 750n],
+    [0n, 7n, 0n],
+    [0n, 0n, 0n],
+    [GAME_MONEY_MAX_MINOR, 0n, 0n],
+    [GAME_MONEY_MAX_MINOR, 1n, GAME_MONEY_MAX_MINOR],
+    [1n, GAME_MONEY_MAX_MINOR, GAME_MONEY_MAX_MINOR],
+    [0n, GAME_MONEY_MAX_MINOR + 1n, 0n],
+    [0n, 10n ** 100n, 0n],
+    [GAME_MONEY_MAX_MINOR / 2n, 2n, GAME_MONEY_MAX_MINOR - 1n],
+    [GAME_MONEY_MAX_MINOR / 3n, 3n, GAME_MONEY_MAX_MINOR],
+    [9007199254740993n, 3n, 27021597764222979n],
+  ] as const)('multiplies %s by %s exactly to %s minor units', (amount, factor, expected) => {
+    expect(multiplyGameMoney(amount, factor)).toBe(expected);
+  });
+
+  it.each([
+    [GAME_MONEY_MAX_MINOR, 2n],
+    [GAME_MONEY_MAX_MINOR / 2n + 1n, 2n],
+    [1n, GAME_MONEY_MAX_MINOR + 1n],
+    [1n, 10n ** 100n],
+  ] as const)('rejects the overflowing product of %s and %s with TOO_LARGE', (amount, factor) => {
+    expectMoneyError(() => multiplyGameMoney(amount, factor), 'TOO_LARGE');
+  });
+
+  it.each([
+    [-1n, 2n],
+    [-1n, 0n],
+    [-1n, -1n],
+    [1n, -1n],
+    [0n, -1n],
+    [GAME_MONEY_MAX_MINOR, -1n],
+  ] as const)('rejects operands (%s, %s) with NEGATIVE before multiplication', (amount, factor) => {
+    expectMoneyError(() => multiplyGameMoney(amount, factor), 'NEGATIVE');
+  });
+
+  it.each([
+    [GAME_MONEY_MAX_MINOR + 1n, 0n],
+    [GAME_MONEY_MAX_MINOR + 1n, 1n],
+    [GAME_MONEY_MAX_MINOR + 1n, -1n],
+    [10n ** 100n, 0n],
+  ] as const)('rejects invalid amount %s before checking factor %s', (amount, factor) => {
+    expectMoneyError(() => multiplyGameMoney(amount, factor), 'TOO_LARGE');
+  });
+
+  it('parses, multiplies, and formats 0.25 times four exactly as 1.00', () => {
+    expect(formatGameMoney(multiplyGameMoney(parseGameMoney('0.25'), 4n))).toBe('1.00');
   });
 });
 
