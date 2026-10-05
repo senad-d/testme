@@ -1,0 +1,17 @@
+{
+	"service": "inventory",
+	"release": {
+		"codename": "quiet-otter-40",
+		"channel": "staging",
+		"build": 1872
+	},
+	"database": {
+		"host": "db.staging.internal",
+		"port": 5432,
+		"pool": 6
+	},
+	"features": {
+		"reorder_suggestions": true,
+		"multi_warehouse": true
+	}
+}
