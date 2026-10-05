@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Inventory service</title>
+    <style>
+      body {
+        margin: 0;
+        font-family: system-ui, sans-serif;
+        color: #1f2937;
+        background: #f8fafc;
+      }
+      main {
+        max-width: 56rem;
+        margin: 0 auto;
+        padding: 3rem 1.5rem;
+        text-align: center;
+      }
+      .badge {
+        display: inline-block;
+        padding: 0.2rem 0.7rem;
+        border-radius: 999px;
+        background: #e0f2fe;
+        color: #075985;
+        font-size: 0.875rem;
+        font-weight: 600;
+      }
+      h1 {
+        font-size: 2.5rem;
+        margin: 1rem 0 0.5rem;
+      }
+      .cards {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr));
+        gap: 1rem;
+        margin: 2rem 0;
+      }
+      .card {
+        background: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+      }
+      .cta {
+        padding: 0.75rem 1.5rem;
+        border: 0;
+        border-radius: 0.5rem;
+        background: #0f766e;
+        color: #ffffff;
+        font-size: 1rem;
+        font-weight: 600;
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <span class="badge" id="badge"></span>
+      <h1 id="headline"></h1>
+      <p id="tagline"></p>
+      <section class="cards" id="cards" aria-label="features"></section>
+      <button class="cta" id="cta" type="button"></button>
+    </main>
+    <script>
+      // The page is assembled at render time; the visible words do not appear
+      // together anywhere in this source.
+      const parts = {
+        name: ["Harbor", "Lantern"],
+        version: [4, 2, 1],
+        tagline: "Inventory that stays in sync across every warehouse.",
+        features: [
+          ["Tides", "Stock levels refresh every minute."],
+          ["Moorings", "Reserve items for open orders."],
+          ["Signals", "Alerts before a shelf runs dry."],
+        ],
+        cta: ["Start", "the", "tour"],
+      };
+      document.getElementById("badge").textContent = "v" + parts.version.join(".");
+      document.getElementById("headline").textContent = parts.name.join(" ");
+      document.getElementById("tagline").textContent = parts.tagline;
+      const cards = document.getElementById("cards");
+      for (const [title, body] of parts.features) {
+        const card = document.createElement("article");
+        card.className = "card";
+        const heading = document.createElement("h2");
+        heading.textContent = title;
+        const text = document.createElement("p");
+        text.textContent = body;
+        card.append(heading, text);
+        cards.append(card);
+      }
+      document.getElementById("cta").textContent = parts.cta.join(" ");
+    </script>
+  </body>
+</html>

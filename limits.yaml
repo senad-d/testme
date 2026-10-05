@@ -1,0 +1,8 @@
+limits:
+  max_items: 61237
+  max_warehouses: 48
+  request_timeout_ms: 2500
+  page_size: 200
+rate:
+  per_minute: 1200
+  burst: 90
