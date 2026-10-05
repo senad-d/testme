@@ -1,0 +1,17 @@
+{
+	"service": "inventory",
+	"release": {
+		"codename": "quiet-otter-41",
+		"channel": "stable",
+		"build": 1873
+	},
+	"database": {
+		"host": "db.internal",
+		"port": 5432,
+		"pool": 12
+	},
+	"features": {
+		"reorder_suggestions": true,
+		"multi_warehouse": false
+	}
+}
