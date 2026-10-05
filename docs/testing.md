@@ -1,19 +1,246 @@
 # Test check registry
 
 Run checks with Node 24.20.0 and pnpm 11.25.0. PostgreSQL checks require a reachable
-Docker daemon; a tooling-only pass is **not** migration acceptance. API tests build
-first so CLI checks execute current compiled output.
+Docker daemon; a tooling-only pass is **not** migration acceptance. API build and
+type-check commands build the shared runtime dependency first, including direct package
+runs without prior build output. API tests and contract commands use that build path so
+package-entrypoint and CLI checks execute current compiled output.
 
-| Check                                  | Command                                                                                                                                                                                                                                                                                                                                                                         | What it proves                                                                                                                                                                                                                                                                                                          | Scope                                                |
-| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
-| Shared package type-check              | `pnpm --filter @mobey/shared type-check`                                                                                                                                                                                                                                                                                                                                        | Checks the shared package's public TypeScript seam under its strict compiler policy.                                                                                                                                                                                                                                    | Focused package check                                |
-| Shared package unit tests              | `pnpm --filter @mobey/shared test`                                                                                                                                                                                                                                                                                                                                              | Runs `packages/shared/src/index.test.ts`, covering the root accessor's non-empty, current-value, and repeatable application-version contract.                                                                                                                                                                           | Focused package suite                                |
-| API database type-check                | `pnpm --filter @mobey/api type-check`                                                                                                                                                                                                                                                                                                                                           | Checks the Drizzle/pg connection boundary, migration runner, and readiness wiring under the strict API compiler policy.                                                                                                                                                                                                 | Focused package check                                |
-| API health version                     | `pnpm --filter @mobey/api test health-version.spec.ts`                                                                                                                                                                                                                                                                                                                          | Runs `apps/api/test/health-version.spec.ts`, covering the API package semantic version, repeated controller reads, the uncached `GET /api/v1/health/version` response, and existing health-route behavior without requiring PostgreSQL.                                                                                 | Focused API unit/HTTP suite                          |
-| Drizzle configuration check            | `NODE_ENV=test DATABASE_URL=postgresql://mobey:synthetic@127.0.0.1:5432/mobey pnpm --filter @mobey/api exec node --no-warnings --experimental-strip-types --input-type=module --eval "const { default: config } = await import('./drizzle.config.ts'); if (config.dialect !== 'postgresql') process.exit(1); if (config.out !== './src/database/migrations') process.exit(1);"` | Loads the PostgreSQL-only Drizzle configuration and verifies its checked-migration path without connecting to a database or generating artifacts.                                                                                                                                                                       | Focused configuration check                          |
-| API declaration/runtime/CLI regression | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/platform-migration.integration.spec.ts -t 'platform tooling'`                                                                                                                                                                                                                                  | Compiles positive and negative typed-client fixtures with the API's strict settings; checks query construction, patched declarations against runtime, explicit bounds/TLS configuration, unreachable-DB readiness, and generic CLI failure output. No database substitute.                                              | Focused tooling selection; excludes PostgreSQL cases |
-| PostgreSQL platform migration          | `pnpm --filter @mobey/api test -- platform-migration.integration.spec.ts`                                                                                                                                                                                                                                                                                                       | Runs the Task 12 migration/readiness suite against a real PostgreSQL Testcontainers instance, including apply-once/concurrent ledger assertions, compatible migration-before-rollout/readiness, transactional failure rollback, checksum/order rejection, missing dependency readiness, TLS, and bounded pool settings. | Focused PostgreSQL integration                       |
-| Patched install determinism            | `before=$(shasum -a 256 pnpm-lock.yaml pnpm-workspace.yaml); pnpm install && pnpm install --frozen-lockfile && test "$before" = "$(shasum -a 256 pnpm-lock.yaml pnpm-workspace.yaml)"`                                                                                                                                                                                          | Ordinary and frozen installs apply the registered patch without changing the lockfile or lifecycle policy.                                                                                                                                                                                                              | Workspace install check                              |
+| Check                                  | Command                                                                                                                                                                                                                                                                                                                                                                         | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Scope                                                |
+| -------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------- |
+| Shared package type-check              | `pnpm --filter @mobey/shared type-check`                                                                                                                                                                                                                                                                                                                                        | Checks the shared package's public TypeScript seam under its strict compiler policy.                                                                                                                                                                                                                                                                                                                                                                                                    | Focused package check                                |
+| Shared package unit tests              | `pnpm --filter @mobey/shared test`                                                                                                                                                                                                                                                                                                                                              | Runs `packages/shared/src/index.test.ts` and `money.test.ts`, covering application identity and root-exported Game Money conversion and checked addition/subtraction/multiplication/sum: operand bounds, factor validation, full-list validation before accumulation, empty/readonly lists, failure-path input preservation, overflow, insufficient funds, exact large values, boundary-pair arithmetic inverses, error codes, safe diagnostics, canonical formatting, and round trips. | Focused package suite                                |
+| API database type-check                | `pnpm --filter @mobey/api type-check`                                                                                                                                                                                                                                                                                                                                           | Checks the Drizzle/pg connection boundary, migration runner, and readiness wiring under the strict API compiler policy.                                                                                                                                                                                                                                                                                                                                                                 | Focused package check                                |
+| Drizzle configuration check            | `NODE_ENV=test DATABASE_URL=postgresql://mobey:synthetic@127.0.0.1:5432/mobey pnpm --filter @mobey/api exec node --no-warnings --experimental-strip-types --input-type=module --eval "const { default: config } = await import('./drizzle.config.ts'); if (config.dialect !== 'postgresql') process.exit(1); if (config.out !== './src/database/migrations') process.exit(1);"` | Loads the PostgreSQL-only Drizzle configuration and verifies its checked-migration path without connecting to a database or generating artifacts.                                                                                                                                                                                                                                                                                                                                       | Focused configuration check                          |
+| API declaration/runtime/CLI regression | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/platform-migration.integration.spec.ts -t 'platform tooling'`                                                                                                                                                                                                                                  | Compiles positive and negative typed-client fixtures with the API's strict settings; checks query construction, patched declarations against runtime, explicit bounds/TLS configuration, unreachable-DB readiness, and generic CLI failure output. No database substitute.                                                                                                                                                                                                              | Focused tooling selection; excludes PostgreSQL cases |
+| PostgreSQL platform migration          | `pnpm --filter @mobey/api test -- platform-migration.integration.spec.ts`                                                                                                                                                                                                                                                                                                       | Runs the Task 12 migration/readiness suite against a real PostgreSQL Testcontainers instance, including apply-once/concurrent ledger assertions, compatible migration-before-rollout/readiness, transactional failure rollback, checksum/order rejection, missing dependency readiness, TLS, and bounded pool settings.                                                                                                                                                                 | Focused PostgreSQL integration                       |
+| Patched install determinism            | `before=$(shasum -a 256 pnpm-lock.yaml pnpm-workspace.yaml); pnpm install && pnpm install --frozen-lockfile && test "$before" = "$(shasum -a 256 pnpm-lock.yaml pnpm-workspace.yaml)"`                                                                                                                                                                                          | Ordinary and frozen installs apply the registered patch without changing the lockfile or lifecycle policy.                                                                                                                                                                                                                                                                                                                                                                              | Workspace install check                              |
+
+## Shared Game Money conversion (#85)
+
+Trace: #85 (depends on #68), #87 (depends on #85); REQ-BAL-01–05 and the
+exact-arithmetic safeguard REQ-BAL-06 (U-10). Run only this suite with
+`pnpm --filter @mobey/shared exec vitest run src/money.test.ts`.
+
+`parseGameMoney` and `formatGameMoney` are standalone, exact two-decimal-to-minor-unit
+conversions exposed through the shared package root. Their 15-integer-digit bound
+is specific to the standalone #85/#87/#95/#97 utility contract. They are **not** the existing API's
+signed integer-string transport, do not introduce fractional Game Money into domain
+behavior, and do not approve a durable balance ceiling or close OQ-11. No API route,
+generated contract, database schema, or migration changes here.
+
+The shared suite also guards against echoing rejected synthetic amounts in error
+messages. The existing API HTTP-contract suite verifies all four conversion exports
+through the **compiled** `@mobey/shared` package root in Node, plus their declaration
+compatibility with the real web compiler configuration. Negative compiler fixtures
+reject numeric parser inputs, non-BigInt formatter inputs, and unknown error codes.
+Run the registered HTTP and generated contract regression command for this seam;
+no browser, API money endpoint, or PostgreSQL is needed for these checks.
+
+The diagnostic guards were confirmed to fail for both malformed and oversized
+inputs when an isolated temporary source copy echoed inputs in error messages.
+The compiled-root guard failed when a temporary Node loader removed the money
+exports. All temporary probes were deleted; repository production code was not
+modified during these sensitivity checks.
+
+## Shared Game Money sum (#97)
+
+Trace: #97 (depends on #87); REQ-BAL-06 (U-10). Use the registered shared unit
+suite or its focused money-file command above. The standalone utility boundary
+and unresolved OQ-11 gate described above apply; no domain totals are introduced.
+
+`sumGameMoney(amounts: readonly bigint[]): bigint` validates every element before
+any arithmetic (`NEGATIVE` below zero, `TOO_LARGE` above
+`GAME_MONEY_MAX_MINOR`), then accumulates with `addGameMoney`. An empty list
+returns `0n`; a running total above the utility maximum throws `TOO_LARGE`.
+The input is not modified, and amounts never pass through `Number`.
+
+The money suite checks empty/single/multiple/zero/maximum totals, exact sums above
+JavaScript's safe-integer range, oversized and negative elements, overflow at
+multiple positions, full-list validation before an overflowing prefix is added,
+frozen readonly input, mutable-input preservation after validation or accumulation
+failure, and the parse/sum/format pipeline `0.10 + 0.20 = 0.30`.
+The public readonly-array/bigint signature is checked by the registered test
+TypeScript command. Before implementation, all 22 new runtime cases failed against
+the absent root export while the existing money cases passed.
+Independent QA guards input preservation after both operand-validation failure
+and running-total overflow. Each guard invokes the sum once and checks the original
+list; both failed when an isolated temporary source copy reversed the input on
+error. Temporary probes were deleted; repository production code was not modified.
+
+## Shared Game Money multiplication (#95)
+
+Trace: #95 (depends on #87); REQ-BAL-06 (U-10). Use the registered shared unit
+suite or its focused money-file command above. The standalone utility boundary
+and unresolved OQ-11 gate described above apply; no reward rules are introduced.
+
+`multiplyGameMoney(amount, factor)` takes and returns bigint minor units. It first
+validates the amount (`NEGATIVE` below zero, `TOO_LARGE` above
+`GAME_MONEY_MAX_MINOR`), then rejects negative factors with `NEGATIVE`. The factor
+is dimensionless and has no independent upper bound. Products above the utility
+maximum throw `TOO_LARGE`; successful results stay within the inclusive bounds.
+All arithmetic uses bigint without conversion through `Number`.
+
+The money suite checks zero/unit/maximum cases, exact products above JavaScript's
+safe-integer range, factors beyond the amount bound, overflow boundaries, amount
+validation before factor validation or zero multiplication, and the parse/multiply/
+format pipeline `0.25 * 4 = 1.00`. All 26 implementation cases failed against the
+absent root export before implementation, while the 113 existing money cases passed.
+Independent QA adds last-valid/first-overflow amount checks across varied bigint
+factors, including factors around the safe-integer boundary, plus a public
+bigint-only signature assertion checked by the registered test TypeScript command.
+These guards detect Number-based rounding, a missing product overflow guard, and
+a widened result type in isolated temporary source copies. Temporary probes were
+deleted; repository production code was not modified.
+
+## Shared Game Money arithmetic (#87)
+
+Trace: #87 (depends on #85); REQ-BAL-03, REQ-BAL-05–06 (U-10).
+Use the registered shared unit suite or its focused money-file command above.
+The standalone utility boundary and unresolved OQ-11 gate described above apply.
+
+`addGameMoney(a, b)` and `subtractGameMoney(a, b)` take and return bigint minor
+units. Each validates both operands before arithmetic: below zero is `NEGATIVE`,
+above `GAME_MONEY_MAX_MINOR` is `TOO_LARGE`. Addition rejects an oversized sum with
+`TOO_LARGE`; subtraction rejects `b > a` with `INSUFFICIENT`. Successful results
+stay in the inclusive utility bounds, without conversion through `Number`.
+`GameMoneyError` preserves the constructor's literal code type while its default
+code union includes `INSUFFICIENT`; the existing web conversion consumer fixture
+continues to compile without changing or weakening its checks.
+The money suite checks both operand positions, zero/equal/maximum boundaries,
+exact results above the JavaScript safe-integer range, and the parse/add/format
+pipeline `0.10 + 0.20 = 0.30`. Before implementation, all 44 new arithmetic cases
+failed against the absent root exports while the 66 conversion cases passed.
+
+The boundary-pair sweep covers 81 ordered pairs around decimal carries, JavaScript's
+safe-integer boundary, and the utility ceiling: 65 exact sums recover both operands
+via subtraction, while 16 oversized sums reject with `TOO_LARGE` even though neither
+operand reaches the maximum. The two sweep tests were sensitivity-checked using
+isolated temporary source copies: Number-rounded addition, Number-rounded
+subtraction, and wrapped overflow each caused the relevant new test to fail.
+Temporary copies were cleaned up; production source was not modified.
+
+## Task 13 REST contract (#22)
+
+Trace: implementation plan Task 13; technical specification §11.1–11.3;
+REQ-BAL-05 (U-10), with exact-integer transport supporting REQ-BAL-06.
+This is platform scaffolding, not implementation of the domain routes in §11.2.
+OQ-04 lockout durations and OQ-11 balance ceilings remain explicit decision gates.
+
+| Check                                  | Command                                                                                                                                                                                                                                                                                                                                            | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                          | Scope                                                         |
+| -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
+| Version route regression               | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/health-version.spec.ts`                                                                                                                                                                                                                                           | Runs `apps/api/test/health-version.spec.ts` against compiled Fastify/Nest output, proving the shared identity at `/api/v1/version`, the API package version and repeated reads at `/api/v1/health/version`, no-store JSON, and unchanged liveness/unavailable readiness without a database.                                                                                                                                             | Focused API route suite; no database required                 |
+| HTTP and generated contract regression | `pnpm --filter @mobey/shared build && pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/http-contract.spec.ts`                                                                                                                                                                                                       | Runs `apps/api/test/http-contract.spec.ts`: real Fastify/Nest validation, the exact shared application identity response, every stable error code against its schema, redaction, parser/size errors, request IDs, exact decimal strings, required generated type/package-root consumer constraints, compiled shared money exports and production identity/runtime wiring, deterministic generation, and missing/stale output rejection. | Focused API contract suite; no database required              |
+| Regenerate reviewed contract           | `pnpm --filter @mobey/api contract:generate`                                                                                                                                                                                                                                                                                                       | Builds the API and replaces only the generator-owned `packages/shared/src/generated/api.ts` from current Nest OpenAPI metadata.                                                                                                                                                                                                                                                                                                         | Generation command; review the diff, not a correctness gate   |
+| Generated contract drift               | `pnpm --filter @mobey/api contract`                                                                                                                                                                                                                                                                                                                | Builds the API, generates into an isolated temporary directory, and fails if the reviewed artifact is absent or byte-different; never overwrites reviewed output.                                                                                                                                                                                                                                                                       | Database-independent contract gate for Task 14 CI integration |
+| Workspace contract entrypoint          | `pnpm contract --force`                                                                                                                                                                                                                                                                                                                            | Runs the API contract check through the existing Turbo task without using its cache.                                                                                                                                                                                                                                                                                                                                                    | Workspace contract gate                                       |
+| Workspace build                        | `pnpm build`                                                                                                                                                                                                                                                                                                                                       | Builds all implemented workspace packages, including generated TypeScript.                                                                                                                                                                                                                                                                                                                                                              | Workspace suite                                               |
+| Workspace type-check                   | `pnpm type-check`                                                                                                                                                                                                                                                                                                                                  | Runs declared package checks with their upstream build dependencies.                                                                                                                                                                                                                                                                                                                                                                    | Workspace suite                                               |
+| Workspace tests                        | `pnpm test --env-mode=loose`                                                                                                                                                                                                                                                                                                                       | Runs declared suites, including real PostgreSQL migration/readiness tests and the HTTP contract suite. Docker is required.                                                                                                                                                                                                                                                                                                              | Workspace suite; not browser-journey or release evidence      |
+| Workspace lint graph                   | `pnpm lint`                                                                                                                                                                                                                                                                                                                                        | Executes the declared lint graph; currently **no package lint tasks exist**, so success is not lint coverage.                                                                                                                                                                                                                                                                                                                           | Known Task 14/#23 limitation                                  |
+| Contract-change formatting             | `pnpm --filter @mobey/api exec prettier --check src/main.ts src/app.module.ts src/common/http/problem-details.filter.ts src/openapi.ts test/http-contract.spec.ts package.json ../../packages/shared/src/generated/api.ts ../../packages/shared/src/index.ts ../../pnpm-lock.yaml ../../pnpm-workspace.yaml ../../docs/testing.md ../../AGENTS.md` | Checks every changed source, generated artifact, manifest, and document using the pinned formatter and repository configuration.                                                                                                                                                                                                                                                                                                        | Exact Task 13 manifest                                        |
+
+In an isolated worktree, set `TURBO_CACHE_DIR="$PWD/.turbo/cache"` before workspace
+commands to keep Turbo's cache inside that checkout rather than its shared worktree
+cache.
+
+Additional tooling checks for this manifest:
+
+| Check                         | Command                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | What it proves                                                                                                                                                                                                                                                    | Scope                                          |
+| ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
+| Contract test TypeScript      | `pnpm --filter @mobey/api exec tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --experimentalDecorators --emitDecoratorMetadata --exactOptionalPropertyTypes --noUncheckedIndexedAccess --noImplicitOverride --noUnusedLocals --noUnusedParameters --noPropertyAccessFromIndexSignature --verbatimModuleSyntax test/http-contract.spec.ts ../../packages/shared/src/money.test.ts ../../packages/shared/src/index.test.ts` | Type-checks the HTTP contract and shared test files plus imported production code without skipping library checks. Explicit options are needed because test files are excluded from the application tsconfig; production still receives its normal project check. | Focused test compiler check                    |
+| Dependency peer compatibility | `pnpm peers check`                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Verifies declared dependency peer ranges, including Nest 12 and TypeScript 6 compatibility.                                                                                                                                                                       | Workspace dependency check                     |
+| Dependency advisory inventory | `pnpm audit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Reports vulnerabilities in the locked graph. The new YAML-parser advisories are remediated; the pre-existing moderate Drizzle Kit/esbuild advisory still makes this command exit nonzero.                                                                         | Inventory, not a passing security/release gate |
+
+For local Colima PostgreSQL verification, export
+`DOCKER_HOST=unix://$HOME/.colima/default/docker.sock` and
+`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` before the database
+or workspace suites. The workspace command uses Turbo's loose environment mode
+because the current task configuration does not forward these variables in strict
+mode; otherwise Ryuk receives a host-only socket path and container startup fails.
+This changes environment forwarding, not test selection or assertions. No `.env`
+file is loaded. CI environment allowlisting remains Task 14/#23 work.
+
+### Runtime and generation boundaries
+
+- `configureHttp` is shared by the production bootstrap and synthetic test-only
+  controllers. Global validation rejects unknown fields without reporting targets,
+  values, or private field names, including prototype-related keys that Nest would
+  otherwise silently strip before whitelist validation. `@DecimalMoney()` combines runtime validation and
+  OpenAPI string metadata; it accepts canonical signed base-10 integer strings,
+  rejects JSON numbers, and performs no coercion or arithmetic. Endpoints must later
+  constrain signs and enforce their approved bounds; accepting a large transport
+  string is not approval to store it in PostgreSQL or apply it to a balance.
+- The catch-all filter maps framework/parser failures and explicit stable codes to
+  fixed safe RFC 9457 copy. Fastify's pre-routing error handler uses the same mapper
+  and request-ID validation for malformed encoded URLs, which bypass Nest filters
+  and `onRequest` hooks. Arbitrary exception messages, bodies, extension objects,
+  URLs, and query strings are never serialized. `instance` is a request correlation
+  URN, not a potentially private URL. Optional endpoint-specific `errors`/`current`
+  extensions are not implemented. No authentication, rate limiter, money write,
+  migration, logging destination, or participant fixture is introduced.
+- Every application response carries `X-Request-Id`. Only canonical lowercase
+  UUID-v4 client values are reused; absent/invalid values receive a fresh UUID.
+  Explicit positive `Retry-After` durations are supported only for rate-limit codes;
+  there is no default duration or implemented OQ-04 policy. Tests use a synthetic
+  duration solely to prove header serialization.
+- Existing `/api/v1/health/live` and `/api/v1/health/ready` JSON reports are preserved,
+  including readiness's `503 {"status":"unavailable"}` operational report. OpenAPI
+  documents this separately from controller exceptions, which use
+  `application/problem+json`. `GET /api/v1/version` returns the shared package's application
+  name, version, and description and disables caching; it adds no authentication or other build metadata.
+  The separate `GET /api/v1/health/version` retains the API package version used by
+  local Compose reload checks; both version routes have generated OpenAPI contracts.
+  No documentation/UI or test-fixture route is served.
+- Generation bootstraps the real application without listening or querying the
+  database, and never loads `.env`. Nest Swagger is the schema authority;
+  `@hey-api/openapi-ts` runs through its supported CLI with only the TypeScript
+  plugin. Its declared peer range supports the pinned TypeScript 6 toolchain. CLI
+  isolation avoids loading unused SDK/plugin library declarations into the API.
+  Temporary generator files are removed in `finally`, and output is formatted with
+  pinned Prettier. The artifact includes a complete OpenAPI SHA-256 digest so changes
+  to patterns, headers, and other constraints invisible to TypeScript also trigger
+  drift detection. Never hand-edit the artifact; regenerate and review it.
+- Generated types are exported with a type-only re-export from the `@mobey/shared`
+  package root; the existing runtime version accessor is unchanged. The contract
+  suite compiles a consumer using the actual web configuration and built package
+  export map, without source aliases or writing web source. It checks money,
+  discriminated problem status and health types, plus negative numeric/status
+  assignments. The API declares the existing shared workspace package as a runtime
+  dependency for the version accessor, so Turbo's `^build` prerequisite and cache
+  inputs include it. Direct API build and type-check commands also build shared first;
+  API test and contract scripts use that build path. No external dependency or
+  generated subpath is added for this seam.
+- Swagger's transitive `@scarf/scarf` install script is explicitly denied in
+  `pnpm-workspace.yaml`. No new lifecycle script is permitted. Frozen installation
+  and generation work with this telemetry script denied. A targeted
+  `@hey-api/json-schema-ref-parser>js-yaml` override pins patched `4.3.2`, removing
+  GHSA-52cp-r559-cp3m and GHSA-5p4m-2wfm-xmqj from the generator's dependency chain.
+  This leaves Swagger's separate YAML dependency and unrelated tooling unchanged.
+- Task 14/#23 owns CI workflow wiring, blocking lint, and Sonar correction. The
+  local contract check does not establish branch protection or a passing release
+  gate. Use the direct API command or `pnpm contract --force` for explicit uncached
+  evidence. The shared workspace dependency puts generated-file changes in the API
+  contract task's upstream build hash; this repairs the earlier artifact-only cache
+  gap. CI must still define all relevant inputs/environment explicitly, including
+  the web compiler configuration consumed by the package-entrypoint test. Root lint
+  remains a no-op; the separately disclosed Drizzle Kit advisory remains unrelated
+  to this work.
+
+The contract test was confirmed to fail when global error mapping, unknown-field
+rejection, request-ID headers, or stale-output detection was disabled (four focused
+failures), and when decimal syntax validation was relaxed (eleven failures).
+The strict DTO schema test also failed before unknown-field rejection was reflected
+in OpenAPI. All mutations were restored before the final verification run.
+Independent review added body/query rejection of prototype-related unknown fields
+and pre-routing malformed-URL redaction/correlation checks, including the compiled
+production bootstrap. These produced seven expected failing cases before correction;
+the complete focused suite passed all 89 cases at that point. The subsequently
+approved package-entrypoint regression failed with three missing-export diagnostics
+before the root type-only re-export was added. The suite passed all 90 cases at
+that point, including positive package imports and independent negative assignments.
+Issue #69 adds the public version response regression and extends the existing
+OpenAPI route check, bringing the focused suite to 91 cases.
 
 ## Web build version footer
 
@@ -23,14 +250,14 @@ first so CLI checks execute current compiled output.
 
 ## Task 11 local Compose checks
 
-| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                             | Scope                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: each synthetic local setting and insecure cookie mode is rejected outside development, malformed URL encoding produces a generic error, generic CLI failure, explicit container host and safe loopback default. Not authentication implementation.                                                                                                   | Focused runtime suite                                                        |
-| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
-| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                      | Configuration smoke                                                          |
-| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                               | Workspace checks                                                             |
-| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                        | Known-limited workspace command                                              |
-| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                | Workspace tests; requires Docker and Chromium                                |
+| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Scope                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: each synthetic local setting and insecure cookie mode is rejected outside development, malformed URL encoding produces a generic error, generic CLI failure, explicit container host and safe loopback default. Not authentication implementation.                                                                                                                                                                                                                                                           | Focused runtime suite                                                        |
+| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
+| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Configuration smoke                                                          |
+| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                        | Workspace checks                                                             |
+| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                                                                                                                                                                                                                                 | Known-limited workspace command                                              |
+| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                         | Workspace tests; requires Docker and Chromium                                |
 
 Install dependencies with `pnpm install --frozen-lockfile` using the versions above.
 Install the existing browser dependency before Compose tests. To keep browser
@@ -142,6 +369,61 @@ commit**. Integration remains unresolved because this worker cannot perform Git
 operations. A Git-capable worker must integrate current main and rerun affected
 checks before independent review and PR publication. Seed/CI/security exclusions
 remain unchanged; no merge or release readiness is claimed.
+
+### Current-main conflict-resolution verification — 2026-10-05
+
+The five conflicted files preserve both the Compose/runtime work and main's REST
+contract work. `GET /api/v1/health/version` still returns the API package version;
+`GET /api/v1/version` still returns the shared application identity. Both disable
+caching. Production HTTP validation, redacted problem details and correlation
+headers remain enabled alongside the development-configuration rejection guard.
+
+Required companion paths beyond the five conflicts are
+`apps/api/test/http-contract.spec.ts` (the exact shipped-route inventory and health
+version schema) and generator-owned `packages/shared/src/generated/api.ts`.
+Preserving the existing health-version route initially produced three expected
+contract failures: route inventory, stale generated output, and compiled drift
+check. Updating the inventory/schema assertion and regenerating the artifact
+resolved them; no generated output was hand-edited. Include both companion paths
+in the issue/PR manifest before publication.
+
+Verification used Node 24.20.0, pnpm 11.25.0, the confirmed local Colima socket
+`unix:///Users/senad/.colima/default/docker.sock`, Docker Engine 29.2.1,
+Compose 5.6.0 and the installed Playwright Chromium. Frozen installation, API
+contract generation/check, workspace build (four tasks), workspace type-check
+(six tasks including shared build), and Compose model validation passed.
+The API suite passed **124 tests in four files**, including real-PostgreSQL
+migration and HTTP-contract checks. The clean-source-copy Compose suite passed
+**all six tests**, including the newly committed shared-build and active-Watch
+exclusion regressions, HMR/restart, retained migration timestamp, failed-migration
+ordering, context exclusions and non-root runnable production images.
+Only UUID-namespaced test resources were changed and removed.
+
+A separate strict compiler check initially reported missing declaration files for
+the health test's compiled imports. The test now uses matching source-module types
+for dynamically loaded compiled modules; it still exercises emitted Nest metadata.
+The compiler check and all 124 API tests then passed without suppressions or changed
+compiler policy. After selecting the pinned Node/pnpm binaries on `PATH`, commands
+were:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @mobey/api contract:generate
+pnpm --filter @mobey/api contract
+pnpm build
+pnpm type-check
+pnpm --filter @mobey/api exec tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --experimentalDecorators --emitDecoratorMetadata --exactOptionalPropertyTypes --noUncheckedIndexedAccess --noImplicitOverride --noUnusedLocals --noUnusedParameters --noPropertyAccessFromIndexSignature --verbatimModuleSyntax test/health-version.spec.ts test/local-runtime.spec.ts test/http-contract.spec.ts
+(cd apps/api && DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock ../../node_modules/.ci-tools/node24/bin/node node_modules/vitest/vitest.mjs run)
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js test tests/e2e/local-compose.spec.ts --workers=1
+docker compose --env-file /dev/null config --quiet
+```
+
+These are conflict-resolved **working-tree** results, not a concluded merge,
+clean-clone/publication-revision evidence, or independent-review approval. A Git
+worker must conclude the merge; subsequent verification/review/publication must
+attach evidence to that resulting revision. No merge of the PR is authorized.
+Deferred seed, Task 14 CI/Sonar/lint and the previously disclosed Drizzle Kit
+security limitation remain unchanged; no new security/release gate is claimed.
 
 ### Previous Task 11 implementation verification — 2026-09-05
 

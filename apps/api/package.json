@@ -4,15 +4,19 @@
   "private": true,
   "type": "module",
   "scripts": {
-    "build": "tsc --project tsconfig.json",
+    "build": "pnpm --filter @mobey/shared build && tsc --project tsconfig.json",
+    "contract": "pnpm build && node dist/openapi.js --check",
+    "contract:generate": "pnpm build && node dist/openapi.js --write",
     "migrate": "node dist/database/migrate.js",
-    "type-check": "tsc --project tsconfig.json --noEmit",
+    "type-check": "pnpm --filter @mobey/shared build && tsc --project tsconfig.json --noEmit",
     "test": "pnpm build && vitest run --passWithNoTests"
   },
   "dependencies": {
+    "@mobey/shared": "workspace:*",
     "@nestjs/common": "12.0.1",
     "@nestjs/core": "12.0.1",
     "@nestjs/platform-fastify": "12.0.1",
+    "@nestjs/swagger": "12.0.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "drizzle-orm": "0.45.2",
@@ -22,11 +26,14 @@
     "rxjs": "7.8.2"
   },
   "devDependencies": {
+    "@hey-api/openapi-ts": "0.99.0",
     "@nestjs/testing": "12.0.1",
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "24.13.3",
     "@types/pg": "8.23.1",
+    "ajv": "8.20.0",
     "drizzle-kit": "0.31.10",
+    "prettier": "3.9.6",
     "typescript": "6.0.3",
     "vitest": "4.1.11"
   }

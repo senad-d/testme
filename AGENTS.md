@@ -1,7 +1,7 @@
 # Mobey Repository Guidance
 
 **Scope:** Repository-wide guidance for coding agents  
-**Current phase:** Phase 1 platform baseline with a runnable health slice, migrations and local Compose; domain features and pilot release remain gated
+**Current phase:** Phase 1 platform baseline with a runnable health slice, migrations, generated REST contracts and local Compose; domain features and pilot release remain gated
 
 **Product release:** Family-loop MVP private pilot
 
@@ -57,7 +57,9 @@ The selected design is a TypeScript modular monolith:
 - version-controlled content with no CMS; and
 - Docker/Compose locally and Terraform-managed AWS deployment.
 
-These are **intended future paths**, not current files:
+The application/package roots and local Compose stack below now exist. E2E includes
+local Compose smoke coverage, not domain journeys; Terraform and GitHub workflows
+remain intended future surfaces in this checkout:
 
 ```text
 apps/web/                         React/Vite UI
@@ -68,8 +70,8 @@ tests/e2e/                        critical Playwright journeys
 infra/terraform/bootstrap/        remote-state prerequisites
 infra/terraform/modules/          AWS modules
 infra/terraform/environments/     nonprod and prod roots
-.github/                          future templates and workflows
-compose.yaml                      future local stack
+.github/                          issue/PR templates, CODEOWNERS; future workflows
+compose.yaml                      local development stack
 ```
 
 API bounded contexts are Identity & Family, Learning, Economy, Rewards, Reporting, Privacy & Consent, and Operations. Domain behavior belongs to its API module. `packages/shared` must not contain database entities or business services. Content must be deterministic and reviewed; do not introduce network content generation, runtime AI generation, or mutable production authoring.
@@ -122,7 +124,25 @@ When routes are implemented, a public controller/DTO/error change must regenerat
 
 ## 6. Local development expectations
 
-The local health slice runs with `docker compose --env-file /dev/null up --build --watch` from the repository root (Docker Compose 2.32+). See [README.md](README.md) for verified commands, image checks, shutdown/reset instructions and limitations. Host tooling uses Node 24.20.0 and pnpm 11.25.0; install with `pnpm install --frozen-lockfile`. Keep command evidence tied to the source revision under review.
+The local health slice runs with `docker compose --env-file /dev/null up --build --watch` from the repository root (Docker Compose 2.32+). See [README.md](README.md) for verified commands, image checks, shutdown/reset instructions and limitations. Keep command evidence tied to the source revision under review.
+
+Use the pinned Node 24.20.0 and pnpm 11.25.0 toolchain. Install dependencies with
+`pnpm install --frozen-lockfile`; do not use the default Node 26 runtime as verification
+evidence. The workspace has build, type-check, test, and contract commands. Exact
+commands and their evidence scope live in [`docs/testing.md`](docs/testing.md).
+Clean-checkout and publication evidence must be established by the delivery workflow;
+a working-tree check alone is not clean-clone or release evidence.
+
+For public controller/DTO/error changes, run
+`pnpm --filter @mobey/api contract:generate`, review the generator-owned
+`packages/shared/src/generated/api.ts`, then run `pnpm --filter @mobey/api contract`.
+The latter fails on missing/stale output without rewriting it. Use
+`pnpm contract --force` to run the workspace contract gate without a Turbo cache hit.
+Generation uses Nest OpenAPI metadata without a database query or listening server.
+The generated file's schema digest also tracks constraints not expressible as
+TypeScript types. Never hand-edit generated output. See the registry's Task 13
+section for safe problem details, request IDs, decimal-string transport, and the
+preserved health-report contract.
 
 The Compose stack provides `web`, `api`, `db`, and one-shot `migrate`, web HMR/API source sync-and-restart, health/migration ordering and persistent local DB storage. Use only its explicit synthetic development configuration. Always supply `--env-file /dev/null`; never implicitly read the ignored root `.env`, synchronize `.pi`, use participant data, or select local development-secret/cookie modes outside development. Production stages use frozen dependencies and non-root runtime users. The rejection guard is not authentication implementation or OQ approval.
 
@@ -161,12 +181,14 @@ Never weaken, skip, mock away, quarantine, or relabel a required check to obtain
 
 ## 9. GitHub delivery workflow
 
-The intended workflow is issue → branch → focused commits → pull request → independent review → squash merge. GitHub templates, branch protection, CODEOWNERS, and workflows do not exist yet; do not claim repository settings are enforced until verified. Do not invent maintainer or team handles for ownership rules.
+The delivery convention is issue → branch → focused commits → pull request → independent review → squash merge. Use [the MVP issue form](.github/ISSUE_TEMPLATE/mvp-task.yml) and [the pull-request template](.github/pull_request_template.md), following the [plan conventions](docs/plans/mobey-mvp-implementation-plan.md#github-issue-branch-commit-and-pull-request-conventions) and Task 15 (`U-23`). The issue form requires each evidence/scope field; PR Markdown supplies mandatory completion prompts, not automated validation. Complete every section or explain why it is inapplicable.
 
-- **Issue:** one approved implementation-plan task per issue, titled `[MVP][P<phase>] <task outcome>`. Include task number, `REQ-*`/`OQ-*` trace, dependencies, complete exact-file manifest, acceptance criteria, privacy/security impact, migration/rollback effect, and required evidence.
+[CODEOWNERS](.github/CODEOWNERS) assigns every path—including application, content, privacy, workflow, and Terraform paths—to `@senad-d`. The repository owner approved this single owner and confirmed repository write access in issue #24 (objective 240). Do not invent additional maintainer/team handles. Ownership files do not establish required-review, status-check, or protected-main enforcement: obtain external repository-settings evidence separately. This task does not configure settings or supply CI workflows.
+
+- **Issue:** one approved implementation-plan task per issue, titled `[MVP][P<phase>] <task outcome>`. Include task/phase, applicable `REQ-*`/`U-*`/`OQ-*` trace and source sections, dated decision-record links or explicit unresolved blockers, dependencies and readiness, complete exact-file manifest including companion paths, acceptance criteria and required evidence, privacy/security impact, migration/rollback effect, and later-work exclusion. Amend the issue before expanding scope.
 - **Branch:** after the issue is ready, update from `main` and create `feat/<issue>-<slug>`, `fix/<issue>-<slug>`, `infra/<issue>-<slug>`, `test/<issue>-<slug>`, or `docs/<issue>-<slug>`. Branch protection is intended but must be verified separately.
 - **Commit:** use a Conventional Commit subject, for example `feat(learning): persist placement outcome`, and include `Refs #<issue>` in the body. Keep commits reviewable and truthful about evidence.
-- **Pull request:** use a Conventional Commit title and `Closes #<issue>`. List requirement traces, exact changed paths, evidence, migrations/rollback, and threat/privacy effects. UI evidence uses synthetic data; concurrency evidence includes database assertions.
+- **Pull request:** use a Conventional Commit title and `Closes #<issue>`. Complete the template's trace, decisions, dependencies, exact changed paths and companion review, exclusions, criterion-to-evidence mapping, migrations/rollback, and threat/privacy fields. Record the tested commit, pinned toolchain, isolated effective targets, failures and limitations. UI evidence uses synthetic data; concurrency evidence includes real-PostgreSQL assertions. Record independent-review evidence honestly; pending review is not approval.
 - **Review and merge:** no direct push to `main`; require independent review and all applicable checks. Resolve generated contract, migration, and Terraform plan changes in review. Squash merge. Production requires a separate manual approver through the protected `production` Environment once that environment exists.
 
 Do not combine independent issues to reduce pull-request count. Tasks outside plan items 1–51 are not approved as MVP merely because they seem useful.
@@ -199,6 +221,6 @@ Do not:
 
 ## 12. Current repository phase
 
-The repository contains planning documentation, pinned workspace manifests/lockfile, application/package scaffolds, a runnable web/API health slice, real-PostgreSQL migration tests, Docker/Compose and local runtime/browser checks. The ignored root `.env` and `.pi` are local state, never build inputs. Domain schemas/content, Terraform and GitHub delivery automation remain unimplemented. SonarCloud configuration and the zero-task root lint graph remain Task 14/#23 limitations; the separate moderate esbuild advisory through Drizzle Kit is not fixed by local Compose.
+The repository contains planning documentation, pinned workspace manifests/lockfile, application/package scaffolds, shared primitives, a runnable web/API health slice, real-PostgreSQL migration tests, generated REST contract tooling, Docker/Compose and local runtime/browser checks. The ignored root `.env` and `.pi` are local state, never build inputs. Domain schemas/content, Terraform and GitHub delivery automation remain unimplemented. SonarCloud configuration and the zero-task root lint graph remain Task 14/#23 limitations; the separate moderate esbuild advisory through Drizzle Kit is not fixed by local Compose. See `docs/testing.md` for actual check coverage rather than inferring release readiness from a successful command.
 
 The technical and implementation baselines are conditional. Reversible repository/tooling work may proceed only through an approved issue; feature work must obey its Phase 0 dependencies. The project is **not ready for feature implementation commitment or pilot release**. Local platform code/test evidence does not establish legal/privacy approval, educational-content approval, target-age usability, cost, AWS deployment or independent release-audit evidence.

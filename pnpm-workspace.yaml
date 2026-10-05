@@ -4,6 +4,7 @@ packages:
   - 'tests/e2e'
 
 allowBuilds:
+  '@scarf/scarf': false
   cpu-features: false
   esbuild: true
   protobufjs: false
@@ -11,6 +12,8 @@ allowBuilds:
 
 engineStrict: true
 linkWorkspacePackages: true
+overrides:
+  '@hey-api/json-schema-ref-parser>js-yaml': 4.3.2
 patchedDependencies:
   drizzle-orm@0.45.2: patches/drizzle-orm@0.45.2.patch
 preferWorkspacePackages: true

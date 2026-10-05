@@ -1,21 +1,34 @@
 import { readFileSync } from 'node:fs';
 
+import {
+  getApplicationDescription,
+  getApplicationName,
+  getApplicationVersion,
+} from '@mobey/shared';
+import type { FastifyInstance } from 'fastify';
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 
-import { HealthController } from '../dist/app.module.js';
-import { createApplication } from '../dist/main.js';
+// API builds do not emit declarations. Use source types for the matching compiled
+// modules while exercising emitted Nest decorator metadata at runtime.
+const { HealthController }: typeof import('../src/app.module.js') = await import(
+  new URL('../dist/app.module.js', import.meta.url).href
+);
+const { createApplication }: typeof import('../src/main.js') = await import(
+  new URL('../dist/main.js', import.meta.url).href
+);
 
 const apiPackage = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
 ) as { version: string };
 
-// Exercise emitted Nest decorator metadata, as used by the running API.
 let application: Awaited<ReturnType<typeof createApplication>>;
+let http: FastifyInstance;
 
 beforeAll(async () => {
   vi.stubEnv('DATABASE_URL', undefined);
   application = await createApplication();
   await application.init();
+  http = application.getHttpAdapter().getInstance();
 });
 
 afterAll(async () => {
@@ -55,5 +68,19 @@ describe('health version', () => {
       expect(response.json()).toEqual({ status });
       expect(response.headers['cache-control']).toBe('no-store');
     }
+  });
+});
+
+describe('GET /api/v1/version', () => {
+  test('returns the shared application identity without allowing caches', async () => {
+    const response = await http.inject('/api/v1/version');
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json()).toEqual({
+      version: getApplicationVersion(),
+      name: getApplicationName(),
+      description: getApplicationDescription(),
+    });
+    expect(response.headers['cache-control']).toBe('no-store');
   });
 });

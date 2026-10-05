@@ -6,11 +6,18 @@ import {
   Header,
   HttpCode,
   HttpStatus,
+  Inject,
   Injectable,
   Module,
   type OnApplicationShutdown,
   Res,
 } from '@nestjs/common';
+import { ApiOkResponse, ApiResponse } from '@nestjs/swagger';
+import {
+  getApplicationDescription,
+  getApplicationName,
+  getApplicationVersion,
+} from '@mobey/shared';
 import type { FastifyReply } from 'fastify';
 
 import {
@@ -34,6 +41,12 @@ const packageMetadata = require('../package.json') as PackageMetadata;
 export function getApiVersion(): string {
   return packageMetadata.version;
 }
+
+type VersionResponse = Readonly<{
+  version: string;
+  name: string;
+  description: string;
+}>;
 
 @Injectable()
 class DatabaseReadinessService implements OnApplicationShutdown {
@@ -62,8 +75,19 @@ class DatabaseReadinessService implements OnApplicationShutdown {
 
 @Controller('health')
 export class HealthController {
-  constructor(private readonly databaseReadiness: DatabaseReadinessService) {}
+  constructor(
+    @Inject(DatabaseReadinessService) private readonly databaseReadiness: DatabaseReadinessService,
+  ) {}
 
+  @ApiOkResponse({
+    description: 'The API process is live.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['ok'] } },
+    },
+  })
   @Get('live')
   @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
@@ -71,6 +95,15 @@ export class HealthController {
     return { status: 'ok' };
   }
 
+  @ApiOkResponse({
+    description: 'The running API package version for local reload checks.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['version'],
+      properties: { version: { type: 'string' } },
+    },
+  })
   @Get('version')
   @Header('Cache-Control', 'no-store')
   @HttpCode(HttpStatus.OK)
@@ -78,6 +111,25 @@ export class HealthController {
     return { version: getApiVersion() };
   }
 
+  @ApiOkResponse({
+    description: 'PostgreSQL is reachable and required migrations are applied.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['ok'] } },
+    },
+  })
+  @ApiResponse({
+    status: 503,
+    description: 'Operational readiness report; not a controller exception.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['status'],
+      properties: { status: { type: 'string', enum: ['unavailable'] } },
+    },
+  })
   @Get('ready')
   @Header('Cache-Control', 'no-store')
   async ready(@Res({ passthrough: true }) response: FastifyReply): Promise<HealthResponse> {
@@ -88,8 +140,35 @@ export class HealthController {
   }
 }
 
+@Controller('version')
+class VersionController {
+  @ApiOkResponse({
+    description: 'The running application identity and version.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['version', 'name', 'description'],
+      properties: {
+        version: { type: 'string' },
+        name: { type: 'string' },
+        description: { type: 'string' },
+      },
+    },
+  })
+  @Get()
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  version(): VersionResponse {
+    return {
+      version: getApplicationVersion(),
+      name: getApplicationName(),
+      description: getApplicationDescription(),
+    };
+  }
+}
+
 @Module({
-  controllers: [HealthController],
+  controllers: [HealthController, VersionController],
   providers: [DatabaseReadinessService],
 })
 // Nest modules are intentionally metadata-only classes.
