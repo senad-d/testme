@@ -40,6 +40,18 @@ describe('local runtime boundary', () => {
       readRuntimeConfig({ NODE_ENV: 'production', CSRF_SECRET: 'synthetic-test-100%' }),
     ).not.toThrow();
   });
+  test.each(['%', '%ZZ', '%C0%AF'])(
+    'rejects malformed database URL encoding %s without exposing configuration',
+    (encoding) => {
+      expect(() =>
+        readRuntimeConfig({
+          NODE_ENV: 'production',
+          DATABASE_URL: `postgresql://synthetic:${encoding}@database.invalid/mobey`,
+        }),
+      ).toThrowError(new Error('Invalid API runtime configuration.'));
+    },
+  );
+
   test.each(['production', 'test', 'staging', undefined])(
     'rejects each local setting before API creation with NODE_ENV=%s',
     async (mode) => {

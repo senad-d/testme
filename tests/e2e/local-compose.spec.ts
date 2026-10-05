@@ -218,6 +218,14 @@ test('clean Compose migrates once and serves browser readiness with non-root ser
   );
 });
 
+test('API development image builds its shared workspace prerequisite', async () => {
+  // Main's API build compiles @mobey/shared first. Guard the image inputs even
+  // when this checkout's API package has not yet adopted that build command.
+  expect(() =>
+    compose(['exec', '-T', 'api', 'pnpm', '--filter', '@mobey/shared', 'build']),
+  ).not.toThrow();
+});
+
 test('web HMR and API source restart change responses without rebuilding images', async ({
   page,
 }) => {
@@ -268,6 +276,93 @@ test('web HMR and API source restart change responses without rebuilding images'
         { timeout: 60_000 },
       )
       .toBe(200);
+  }
+});
+
+test('Watch excludes new credentials and generated artifacts while syncing source', async ({
+  page,
+}) => {
+  test.setTimeout(120_000);
+  const excluded = [
+    '.env.watch-canary',
+    '.pi/canary',
+    '.aws/credentials',
+    '.ssh/id_ed25519',
+    '.npmrc',
+    '.netrc',
+    '.pgpass',
+    '.git-credentials',
+    'private.key',
+    'private.pfx',
+    'dist/canary',
+    'coverage/watch-canary',
+    'test-results/canary',
+    'watch-canary.spec.ts',
+  ];
+  const marker = 'watch-safe-source.ts';
+  try {
+    for (const service of ['api', 'web']) {
+      const source = join(directory, 'apps', service, 'src');
+      for (const path of excluded) {
+        const destination = join(source, path);
+        await mkdir(join(destination, '..'), { recursive: true });
+        await writeFile(destination, 'synthetic-watch-exclusion-canary');
+      }
+      // A real source edit is a synchronization barrier: do not pass merely because Watch
+      // was idle, disconnected or too slow to process the excluded files.
+      await writeFile(join(source, marker), 'export const watchProof = true;\n');
+      await expect
+        .poll(
+          () => {
+            try {
+              return compose([
+                'exec',
+                '-T',
+                service,
+                'cat',
+                `/workspace/apps/${service}/src/${marker}`,
+              ]);
+            } catch {
+              return '';
+            }
+          },
+          { timeout: 60_000 },
+        )
+        .toBe('export const watchProof = true;');
+      for (const path of excluded) {
+        expect(
+          compose([
+            'exec',
+            '-T',
+            service,
+            'sh',
+            '-c',
+            `test ! -e /workspace/apps/${service}/src/${path} && echo excluded`,
+          ]),
+        ).toBe('excluded');
+      }
+    }
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await fetch(`${webUrl}/api/v1/health/ready`)).status;
+          } catch {
+            return 0;
+          }
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(200);
+    await page.goto(webUrl);
+    await expect(page.getByRole('status')).toHaveText('API readiness: ready');
+  } finally {
+    for (const service of ['api', 'web']) {
+      const source = join(directory, 'apps', service, 'src');
+      for (const path of [...excluded, marker]) {
+        await rm(join(source, path), { force: true });
+      }
+    }
   }
 });
 

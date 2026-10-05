@@ -6,11 +6,13 @@ COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
 COPY patches/ ./patches/
 COPY apps/api/package.json apps/api/tsconfig.json ./apps/api/
 COPY apps/web/package.json ./apps/web/
-COPY packages/shared/package.json ./packages/shared/
+COPY packages/shared/package.json packages/shared/tsconfig.json ./packages/shared/
 COPY packages/content/package.json ./packages/content/
 COPY tests/e2e/package.json ./tests/e2e/
 RUN pnpm install --frozen-lockfile
 COPY apps/api/src/ ./apps/api/src/
+# The current-main API build compiles its shared workspace dependency first.
+COPY packages/shared/src/ ./packages/shared/src/
 
 FROM dependencies AS development
 RUN chown -R node:node /workspace
