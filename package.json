@@ -10,6 +10,9 @@
     "turbo": "2.10.12"
   },
   "scripts": {
+    "dev": "docker compose --env-file /dev/null up --build --watch",
+    "dev:down": "docker compose --env-file /dev/null down",
+    "test:compose": "pnpm --filter @mobey/e2e exec playwright test local-compose.spec.ts --workers=1",
     "build": "turbo run build",
     "type-check": "turbo run type-check",
     "lint": "turbo run lint",

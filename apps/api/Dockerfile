@@ -1,0 +1,36 @@
+# syntax=docker/dockerfile:1
+FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS dependencies
+WORKDIR /workspace
+RUN npm install --global pnpm@11.25.0
+COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
+COPY patches/ ./patches/
+COPY apps/api/package.json apps/api/tsconfig.json ./apps/api/
+COPY apps/web/package.json ./apps/web/
+COPY packages/shared/package.json ./packages/shared/
+COPY packages/content/package.json ./packages/content/
+COPY tests/e2e/package.json ./tests/e2e/
+RUN pnpm install --frozen-lockfile
+COPY apps/api/src/ ./apps/api/src/
+
+FROM dependencies AS development
+RUN chown -R node:node /workspace
+USER node
+EXPOSE 3000
+CMD ["sh", "-c", "pnpm --filter @mobey/api build && exec node apps/api/dist/main.js"]
+
+FROM dependencies AS build
+# `pm` selects pnpm's packaging command, not the root deployment task script.
+RUN pnpm --filter @mobey/api build \
+    && pnpm pm --filter @mobey/api --config.frozen-lockfile=true deploy --prod --legacy /runtime
+
+FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS production
+WORKDIR /app
+ENV NODE_ENV=production API_HOST=0.0.0.0
+COPY --from=build --chown=node:node /runtime/package.json ./package.json
+COPY --from=build --chown=node:node /runtime/node_modules/ ./node_modules/
+COPY --from=build --chown=node:node /workspace/apps/api/dist/ ./dist/
+# The existing runner resolves checked SQL relative to dist/database/migrate.js.
+COPY --from=build --chown=node:node /workspace/apps/api/src/database/migrations/ ./src/database/migrations/
+USER node
+EXPOSE 3000
+CMD ["node", "dist/main.js"]

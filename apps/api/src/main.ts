@@ -14,6 +14,7 @@ import type { FastifyReply } from 'fastify';
 import 'reflect-metadata';
 
 import { AppModule } from './app.module.js';
+import { readRuntimeConfig } from './runtime-config.js';
 
 const API_PREFIX = 'api/v1';
 const API_PORT = 3000;
@@ -32,6 +33,7 @@ class NotFoundExceptionFilter implements ExceptionFilter {
 }
 
 export async function createApplication(): Promise<NestFastifyApplication> {
+  readRuntimeConfig();
   const application = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
@@ -58,7 +60,7 @@ export async function createApplication(): Promise<NestFastifyApplication> {
 
 async function bootstrap(): Promise<void> {
   const application = await createApplication();
-  await application.listen(API_PORT, '127.0.0.1');
+  await application.listen(API_PORT, readRuntimeConfig().host);
 }
 
 const entrypoint = process.argv[1];

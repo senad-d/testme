@@ -9,10 +9,89 @@ first so CLI checks execute current compiled output.
 | Shared package type-check              | `pnpm --filter @mobey/shared type-check`                                                                                                                                                                                                                                                                                                                                        | Checks the shared package's public TypeScript seam under its strict compiler policy.                                                                                                                                                                                                                                    | Focused package check                                |
 | Shared package unit tests              | `pnpm --filter @mobey/shared test`                                                                                                                                                                                                                                                                                                                                              | Runs `packages/shared/src/index.test.ts`, covering the root accessor's non-empty, current-value, and repeatable application-version contract.                                                                                                                                                                           | Focused package suite                                |
 | API database type-check                | `pnpm --filter @mobey/api type-check`                                                                                                                                                                                                                                                                                                                                           | Checks the Drizzle/pg connection boundary, migration runner, and readiness wiring under the strict API compiler policy.                                                                                                                                                                                                 | Focused package check                                |
+| API health version                     | `pnpm --filter @mobey/api test health-version.spec.ts`                                                                                                                                                                                                                                                                                                                          | Runs `apps/api/test/health-version.spec.ts`, covering the API package semantic version, repeated controller reads, the uncached `GET /api/v1/health/version` response, and existing health-route behavior without requiring PostgreSQL.                                                                                     | Focused API unit/HTTP suite                          |
 | Drizzle configuration check            | `NODE_ENV=test DATABASE_URL=postgresql://mobey:synthetic@127.0.0.1:5432/mobey pnpm --filter @mobey/api exec node --no-warnings --experimental-strip-types --input-type=module --eval "const { default: config } = await import('./drizzle.config.ts'); if (config.dialect !== 'postgresql') process.exit(1); if (config.out !== './src/database/migrations') process.exit(1);"` | Loads the PostgreSQL-only Drizzle configuration and verifies its checked-migration path without connecting to a database or generating artifacts.                                                                                                                                                                       | Focused configuration check                          |
 | API declaration/runtime/CLI regression | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/platform-migration.integration.spec.ts -t 'platform tooling'`                                                                                                                                                                                                                                  | Compiles positive and negative typed-client fixtures with the API's strict settings; checks query construction, patched declarations against runtime, explicit bounds/TLS configuration, unreachable-DB readiness, and generic CLI failure output. No database substitute.                                              | Focused tooling selection; excludes PostgreSQL cases |
 | PostgreSQL platform migration          | `pnpm --filter @mobey/api test -- platform-migration.integration.spec.ts`                                                                                                                                                                                                                                                                                                       | Runs the Task 12 migration/readiness suite against a real PostgreSQL Testcontainers instance, including apply-once/concurrent ledger assertions, compatible migration-before-rollout/readiness, transactional failure rollback, checksum/order rejection, missing dependency readiness, TLS, and bounded pool settings. | Focused PostgreSQL integration                       |
 | Patched install determinism            | `before=$(shasum -a 256 pnpm-lock.yaml pnpm-workspace.yaml); pnpm install && pnpm install --frozen-lockfile && test "$before" = "$(shasum -a 256 pnpm-lock.yaml pnpm-workspace.yaml)"`                                                                                                                                                                                          | Ordinary and frozen installs apply the registered patch without changing the lockfile or lifecycle policy.                                                                                                                                                                                                              | Workspace install check                              |
+
+## Web build version footer
+
+| Check                | Command                                                              | What it proves                                                                                                                                                                                                   | Scope                                                                 |
+| -------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| Web footer rendering | `pnpm --filter @mobey/shared build && pnpm --filter @mobey/web test` | `apps/web/src/main.test.tsx`: semantic footer with `data-testid="build-version"`, configured web build override, shared-version fallback for missing/empty configuration, and retained heading/readiness markup. | Focused React rendering; browser mounting/effects verified separately |
+
+## Task 11 local Compose checks
+
+| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                             | Scope                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: each synthetic local setting and insecure cookie mode is rejected outside development, generic CLI failure, explicit container host and safe loopback default. Not authentication implementation.                                                                                                   | Focused runtime suite                                                        |
+| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, real PostgreSQL apply-once ledger, browser readiness, HMR/API restart with unchanged images, persisted ledger across recreation, failed migration blocks API, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
+| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                      | Configuration smoke                                                          |
+| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                               | Workspace checks                                                             |
+| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                        | Known-limited workspace command                                              |
+| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                | Workspace tests; requires Docker and Chromium                                |
+
+Install dependencies with `pnpm install --frozen-lockfile` using the versions above.
+Install the existing browser dependency with
+`pnpm --filter @mobey/e2e exec playwright install chromium` before Compose tests.
+For a non-default Docker socket (for example Colima), set
+`DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"`
+and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` in the test shell.
+The normal strict Turbo graph does not forward arbitrary local Docker/browser
+variables; `--env-mode=loose` above is an explicit local test invocation, not a CI
+policy change. No host environment file is sourced. Optional
+`PLAYWRIGHT_BROWSERS_PATH` can locate an existing browser installation.
+
+The Compose test copies only required source inputs into a unique ignored
+`node_modules/.compose-test-*` directory, with no host dependency tree or credential/
+agent-state material. It creates its own synthetic `.env`/`.pi` exclusion canaries,
+random loopback ports, containers, images and database volume, then removes only
+those resources. Builds install frozen dependencies in images; dependency layers
+may reuse Docker's content-addressed cache. Startup guards first reproduced failures
+against the unmodified API; the image test also detected the initial production
+packaging failure caused by pnpm's root `deploy` script shadowing its built-in
+command (the image now uses `pnpm pm ... deploy` with frozen-lockfile configuration).
+Restoring Vite's old loopback-only proxy also reproduced a 502 instead of the
+required 200 in the clean Compose readiness check; the container proxy setting was
+then restored and the suite rerun.
+
+The explicit deterministic family/content seed is **not implemented or verified**:
+Task 16/#25 owns the family/schema portion and Task 24/#33 owns approved content,
+as traced by Task 11/#20 and the plan/specification. No schema/content/OQ behavior
+is inferred from passing local platform tests. No Task 14 CI/Sonar correction,
+full security gate or AWS/release evidence is claimed here.
+
+### Task 11 implementation verification — 2026-09-05
+
+Environment: macOS arm64, Node 24.20.0, pnpm 11.25.0, Colima Docker Engine 29.2.1,
+Compose 5.1.4 and Playwright Chromium. Colima was initially stopped; `colima start`
+restored the daemon without changing repository credentials or separate worktrees.
+
+- Frozen/ordinary/frozen installs preserve the lockfile and lifecycle policy;
+  workspace build/type-check and the existing Drizzle configuration check pass.
+- Runtime suite: 9 passing tests. API suites together: 25 passing tests, including
+  16 existing migration/tooling cases against real PostgreSQL. Shared suite: 3
+  passing tests. Compose/browser/image suite: 4 passing tests. Uncached workspace
+  run: 6 successful tasks; existing web/content unit suites still contain no tests.
+- A workspace test attempt without the documented Colima socket variables failed
+  Docker discovery and interrupted its concurrent browser run. The configured
+  uncached workspace rerun passed; the initial attempt is not counted as a pass.
+- Source/local-command documentation formatting passes. The authoritative plan
+  and technical specification already fail whole-file Prettier on the unchanged
+  base revision; they retain surrounding style rather than receiving unrelated
+  whole-document reformatting here. This is not a passing repository-wide format gate.
+- Root lint remains a zero-task no-op. Focused strict ESLint using the existing
+  configuration and cached tooling checks the changed API source and Compose
+  Playwright test; API test/Vite config project-service lint is not wired by the
+  existing tsconfigs. No compiler, lint rule or gate was weakened.
+- `pnpm audit` still reports one moderate advisory, GHSA-67mh-4wv8-2f99 via
+  Drizzle Kit's transitive esbuild (no high/critical advisories). It is not fixed,
+  hidden or treated as a passing full security gate.
+
+Evidence is for the Task 11 implementation working tree, not a published commit,
+independent review, merged policy change or release. Review/publication must attach
+results to the exact eventual commit and keep the deferred seed explicit.
 
 ## Task 12 declaration patch
 
