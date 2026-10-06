@@ -1,0 +1,19 @@
+# Local/private state and tool outputs are not formatting inputs.
+.pi/
+# IssueMe-generated tracker snapshots are not authored source.
+issues/
+**/node_modules/
+**/.turbo/
+**/.scannerwork/
+**/.terraform/
+**/dist/
+**/build/
+**/coverage/
+**/test-results/
+**/playwright-report/
+**/blob-report/
+.env
+.env.*
+*.tfstate*
+*.tfplan
+# Generated API contracts remain checked; never hand-edit them.

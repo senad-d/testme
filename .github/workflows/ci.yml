@@ -1,0 +1,151 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  quality:
+    name: Platform quality and security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      TURBO_CACHE_DIR: .turbo/cache
+      PLAYWRIGHT_BROWSERS_PATH: ${{ github.workspace }}/node_modules/.playwright-browsers
+      TRIVY_DISABLE_TELEMETRY: 'true'
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.20.0
+      - name: Clean-checkout hygiene before installing or building
+        run: node scripts/check-hygiene.mjs
+      - name: Install pinned pnpm in runner temporary storage
+        run: |
+          npm install --prefix "$RUNNER_TEMP/pnpm" --no-audit --no-fund pnpm@11.25.0
+          echo "$RUNNER_TEMP/pnpm/node_modules/.bin" >> "$GITHUB_PATH"
+      - name: Frozen install
+        run: pnpm install --frozen-lockfile
+      - name: Workflow syntax and shell validation
+        run: |
+          node scripts/install-ci-tool.mjs actionlint ci-tools >> "$GITHUB_PATH"
+      - name: Actionlint
+        run: actionlint
+      - name: CI policy regression
+        run: pnpm test:ci-policy
+      - name: Format
+        run: pnpm format:check
+      - name: Source and test lint
+        run: pnpm lint --force
+      - name: Build and types including tests
+        run: |
+          pnpm build --force
+          pnpm type-check --force
+          pnpm exec turbo run type-check:tests --force
+      - name: Generated contract drift (no rewrite)
+        run: pnpm contract --force
+      - name: Locked dependency security (all severities)
+        run: pnpm audit
+      - name: Confine database and browser checks to runner-local Docker
+        run: |
+          test -z "${DOCKER_HOST:-}"
+          test -z "${BUILDX_BUILDER:-}"
+          test "$(docker context show)" = default
+          test "$(docker context inspect --format '{{.Endpoints.docker.Host}}')" = unix:///var/run/docker.sock
+          docker info > /dev/null
+          docker compose version
+      - name: Unit, component and real PostgreSQL integration with coverage
+        run: |
+          pnpm test:coverage
+          node scripts/prepare-coverage.mjs
+      - name: Chromium
+        run: pnpm --filter @mobey/e2e exec playwright install --with-deps chromium
+      - name: Compose regression and production-built browser smoke
+        run: pnpm --filter @mobey/e2e test
+      - name: Install checksum-pinned security tools
+        run: |
+          node scripts/install-ci-tool.mjs gitleaks ci-tools >> "$GITHUB_PATH"
+          node scripts/install-ci-tool.mjs trivy ci-tools >> "$GITHUB_PATH"
+          echo "TRIVY_CACHE_DIR=$RUNNER_TEMP/trivy-cache" >> "$GITHUB_ENV"
+      - name: Secret scanning (redacted)
+        run: |
+          node scripts/test-gitleaks.mjs
+          gitleaks dir . --config .gitleaks.toml --redact=100 --no-banner --exit-code=1
+      - name: Source misconfiguration security
+        run: trivy config --exit-code 1 --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL --skip-dirs node_modules --skip-dirs '**/node_modules' --skip-dirs .git --skip-dirs .pi --skip-dirs .turbo .
+      - name: Production image builds and vulnerability scans
+        run: |
+          trap 'docker image rm "mobey-ci-api:$GITHUB_SHA" "mobey-ci-web:$GITHUB_SHA" >/dev/null 2>&1 || true' EXIT
+          docker build --target production -f apps/api/Dockerfile -t "mobey-ci-api:$GITHUB_SHA" .
+          docker build --target production -f apps/web/Dockerfile -t "mobey-ci-web:$GITHUB_SHA" .
+          trivy image --scanners vuln --exit-code 1 --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL "mobey-ci-api:$GITHUB_SHA"
+          trivy image --scanners vuln --exit-code 1 --severity UNKNOWN,LOW,MEDIUM,HIGH,CRITICAL "mobey-ci-web:$GITHUB_SHA"
+      - name: Terraform surface guard
+        run: |
+          if test -d infra/terraform && find infra/terraform -type f \( -name '*.tf' -o -name '*.tf.json' \) -print -quit | grep -q .; then
+            echo 'Terraform now exists: add approved isolated format/validate/security/plan checks before this gate can pass.' >&2
+            exit 1
+          fi
+          echo 'No Terraform implementation; no cloud credentials or plans are used.'
+      - name: Coverage for Sonar
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: sonar-coverage
+          path: coverage/lcov.info
+          if-no-files-found: error
+          retention-days: 1
+
+  sonar:
+    name: SonarCloud quality gate
+    needs: quality
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4.4.0
+        with:
+          node-version: 24.20.0
+      - uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4.3.0
+        with:
+          name: sonar-coverage
+          path: coverage
+      - name: Install checksum-pinned scanner
+        run: node scripts/install-ci-tool.mjs sonar-scanner ci-tools >> "$GITHUB_PATH"
+      - name: Scan and wait for the quality gate (fail closed without token)
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+          SONAR_USER_HOME: ${{ runner.temp }}/sonar
+        run: |
+          test -n "$SONAR_TOKEN" || { echo 'SONAR_TOKEN is required; no Sonar bypass is permitted.' >&2; exit 1; }
+          sonar-scanner -Dsonar.qualitygate.wait=true -Dsonar.qualitygate.timeout=600
+
+  required:
+    name: CI required
+    if: always()
+    needs: [quality, sonar]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 2
+    steps:
+      - name: Reject failed, cancelled or skipped gates
+        env:
+          QUALITY_RESULT: ${{ needs.quality.result }}
+          SONAR_RESULT: ${{ needs.sonar.result }}
+        run: test "$QUALITY_RESULT" = success && test "$SONAR_RESULT" = success

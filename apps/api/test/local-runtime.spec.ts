@@ -48,7 +48,7 @@ describe('local runtime boundary', () => {
           NODE_ENV: 'production',
           DATABASE_URL: `postgresql://synthetic:${encoding}@database.invalid/mobey`,
         }),
-      ).toThrowError(new Error('Invalid API runtime configuration.'));
+      ).toThrow(new Error('Invalid API runtime configuration.'));
     },
   );
 

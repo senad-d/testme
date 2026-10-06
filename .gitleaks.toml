@@ -1,0 +1,13 @@
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Dependency, Git metadata and local agent/cache trees are not source inputs"
+paths = [
+  '''(^|/)(node_modules|\.git|\.pi|\.turbo)(/|$)'''
+]
+
+[[allowlists]]
+description = "Generator-owned OpenAPI schema digest is public integrity metadata, not a credential"
+regexTarget = "match"
+regexes = ['''^OpenAPI SHA-256: [a-f0-9]{64}$''']

@@ -269,7 +269,7 @@ test('Compose proxy preserves both version identities and safe correlated HTTP f
   });
 });
 
-test('API development image builds its shared workspace prerequisite', async () => {
+test('API development image builds its shared workspace prerequisite', () => {
   // Main's API build compiles @mobey/shared first. Guard the image inputs even
   // when this checkout's API package has not yet adopted that build command.
   expect(() =>
@@ -283,21 +283,22 @@ test('web HMR and API source restart change responses without rebuilding images'
   test.setTimeout(120_000);
   const apiImage = image('api');
   const webImage = image('web');
-  const webSource = join(directory, 'apps/web/src/main.tsx');
+  const webSource = join(directory, 'apps/web/src/app.tsx');
   const apiSource = join(directory, 'apps/api/src/app.module.ts');
   const originalWeb = await readFile(webSource, 'utf8');
   const originalApi = await readFile(apiSource, 'utf8');
   try {
     await page.goto(webUrl);
     await expect(page.getByRole('status')).toHaveText('API readiness: ready');
-    await writeFile(
-      webSource,
-      originalWeb.replace('<h1>Mobey</h1>', '<h1>Mobey reload proof</h1>'),
-    );
+    const changedWeb = originalWeb.replace('<h1>Mobey</h1>', '<h1>Mobey reload proof</h1>');
+    expect(changedWeb, 'HMR fixture must change the visible heading').not.toBe(originalWeb);
+    await writeFile(webSource, changedWeb);
     await expect(page.getByRole('heading', { name: 'Mobey reload proof' })).toBeVisible({
       timeout: 30_000,
     });
-    await writeFile(apiSource, originalApi.replace("@Get('live')", "@Get('reload-proof')"));
+    const changedApi = originalApi.replace("@Get('live')", "@Get('reload-proof')");
+    expect(changedApi, 'Restart fixture must change the liveness route').not.toBe(originalApi);
+    await writeFile(apiSource, changedApi);
     await expect
       .poll(
         async () => {

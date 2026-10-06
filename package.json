@@ -7,7 +7,14 @@
     "node": ">=24.20.0 <25"
   },
   "devDependencies": {
-    "turbo": "2.10.12"
+    "@eslint/js": "10.0.1",
+    "eslint": "10.11.0",
+    "eslint-config-prettier": "10.1.8",
+    "globals": "17.12.0",
+    "prettier": "3.9.6",
+    "turbo": "2.10.12",
+    "typescript-eslint": "8.70.0",
+    "yaml": "2.9.0"
   },
   "scripts": {
     "dev": "docker compose --env-file /dev/null up --build --watch",
@@ -15,7 +22,11 @@
     "test:compose": "pnpm --filter @mobey/e2e exec playwright test local-compose.spec.ts --workers=1",
     "build": "turbo run build",
     "type-check": "turbo run type-check",
-    "lint": "turbo run lint",
+    "format:check": "prettier --check .",
+    "lint": "eslint eslint.config.mjs scripts --max-warnings=0 && turbo run lint",
+    "test:ci-policy": "node --test scripts/ci-policy.test.mjs",
+    "test:platform": "pnpm --filter @mobey/e2e exec playwright test platform-smoke.spec.ts --workers=1",
+    "test:coverage": "pnpm --filter @mobey/shared --filter @mobey/web --filter @mobey/api run test:coverage",
     "test": "turbo run test",
     "contract": "turbo run contract",
     "infrastructure": "turbo run infrastructure",

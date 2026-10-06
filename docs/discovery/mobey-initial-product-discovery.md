@@ -65,77 +65,77 @@ The user selected an option but did not state a comparative rationale; no ration
 
 ### Product concepts
 
-| Concept considered | Main value presented in interview | Main trade-off presented | Outcome |
-|---|---|---|---|
-| Shop & Change | Concrete arithmetic and immediate feedback | Narrower life-money lesson | Not selected |
-| Saving Goal | Delayed gratification and spending trade-offs | More reading/explanation | Not selected alone |
-| Budget Adventure | Broader budgets, needs/wants, and surprises | More complex for a simple ages 7–9 MVP | Not selected |
-| Hybrid progression | Practice money questions, then save/spend earned game money | Larger scope than a single mechanic | **Selected**, later sharpened into learning challenges plus a parent-defined reward shop |
+| Concept considered | Main value presented in interview                           | Main trade-off presented               | Outcome                                                                                  |
+| ------------------ | ----------------------------------------------------------- | -------------------------------------- | ---------------------------------------------------------------------------------------- |
+| Shop & Change      | Concrete arithmetic and immediate feedback                  | Narrower life-money lesson             | Not selected                                                                             |
+| Saving Goal        | Delayed gratification and spending trade-offs               | More reading/explanation               | Not selected alone                                                                       |
+| Budget Adventure   | Broader budgets, needs/wants, and surprises                 | More complex for a simple ages 7–9 MVP | Not selected                                                                             |
+| Hybrid progression | Practice money questions, then save/spend earned game money | Larger scope than a single mechanic    | **Selected**, later sharpened into learning challenges plus a parent-defined reward shop |
 
 Source: [U-01, U-02].
 
 ### Release slices
 
-| Slice considered | Boundary | Outcome |
-|---|---|---|
-| Learning-loop pilot | One parent/child, question skills, scoring, balance, small fixed rewards | Not selected |
-| Family-loop MVP | Full parent/profile/PIN, placement, progression, custom reward, request, dashboard, currencies, analytics, narration, failure/security flow | **Selected** |
-| Expanded launch | Family-loop plus multilingual, multiple auth methods/caregivers, device enforcement, richer reporting | Explicitly future/out of scope |
+| Slice considered    | Boundary                                                                                                                                    | Outcome                        |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| Learning-loop pilot | One parent/child, question skills, scoring, balance, small fixed rewards                                                                    | Not selected                   |
+| Family-loop MVP     | Full parent/profile/PIN, placement, progression, custom reward, request, dashboard, currencies, analytics, narration, failure/security flow | **Selected**                   |
+| Expanded launch     | Family-loop plus multilingual, multiple auth methods/caregivers, device enforcement, richer reporting                                       | Explicitly future/out of scope |
 
 Source: [U-17].
 
 ### Technical options
 
-| Decision | Selected | Alternatives compared |
-|---|---|---|
-| Ecosystem | TypeScript across web/API/packages | Split TypeScript/Python; open choice |
-| Web | React + Vite SPA | Next.js |
-| API | NestJS | Fastify; Express |
-| Persistence | PostgreSQL | DynamoDB |
-| API style | REST/JSON contracts | GraphQL |
-| AWS shape | S3/CloudFront + ECS Fargate/ALB + RDS PostgreSQL | App Runner; Lambda/API Gateway + Aurora Serverless |
-| Narration | Browser text-to-speech | Pre-generated assets; runtime Polly; hybrid |
-| Content | Version-controlled package | Internal CMS; headless CMS |
+| Decision    | Selected                                         | Alternatives compared                              |
+| ----------- | ------------------------------------------------ | -------------------------------------------------- |
+| Ecosystem   | TypeScript across web/API/packages               | Split TypeScript/Python; open choice               |
+| Web         | React + Vite SPA                                 | Next.js                                            |
+| API         | NestJS                                           | Fastify; Express                                   |
+| Persistence | PostgreSQL                                       | DynamoDB                                           |
+| API style   | REST/JSON contracts                              | GraphQL                                            |
+| AWS shape   | S3/CloudFront + ECS Fargate/ALB + RDS PostgreSQL | App Runner; Lambda/API Gateway + Aurora Serverless |
+| Narration   | Browser text-to-speech                           | Pre-generated assets; runtime Polly; hybrid        |
+| Content     | Version-controlled package                       | Internal CMS; headless CMS                         |
 
 Source: [U-07, U-19, U-20, U-21].
 
 ## 4. Glossary
 
-| Term | Definition used in this baseline | Source |
-|---|---|---|
-| **Mobey** | Working name for the product described by this document. | [U-01] |
-| **Family** | The MVP tenancy boundary: one parent login, zero to ten child profiles, a shared reward shop, one currency skin during play, one timezone, and zero or more authorized browsers. | [U-04, U-08, U-11, U-12] |
-| **Parent** | The adult/guardian who owns the sole family login, defines rewards, manages profiles/progression, reviews learning summaries, and resolves requests. | [U-11, U-15, U-16] |
-| **Child** | The intended ages 7–9 player represented by a nickname/avatar profile; no age, real name, or email is stored. | [U-01, U-11, U-14] |
-| **Child profile** | A family-owned play identity with nickname, predefined avatar, PIN, progression, balance, goal, request history, and summaries. | [U-11, U-15] |
-| **Authorized browser** | A browser previously authorized through a parent sign-in where children may later select a profile and use its PIN. Authorization is browser-scoped and does not itself confer parent authority. | [U-12, U-13] |
-| **Child PIN** | A parent-chosen 4–6 ASCII-digit string, preserving leading zeroes; it is family-local and unique among siblings, not an internet-wide credential. | [U-11, U-12] |
-| **Child session** | An authenticated child-mode session for one profile; at most one may be active, and concurrent second-browser access is blocked. | [U-06, U-13] |
-| **Game session** | A run of 10 scored learning challenges, targeted at about 10 minutes; starting it consumes a daily slot. | [U-06] |
-| **Daily session slot** | One of three game-session starts allowed to a child on a family-calendar day; abandonment does not restore it. | [U-06] |
-| **Placement round** | Six unscored one-answer questions, two per skill; prerequisite results select the starting stage. It consumes no daily slot and grants no money. | [U-05] |
-| **Stage** | One of three ordered learning phases: exact amounts, affordability, then change. Ten completed sessions advance a stage. | [U-05] |
-| **Learning challenge** | A themed, scored question inside a game session. Challenge values are temporary practice values. | [U-02, U-03] |
-| **Practice amount/budget** | Temporary money shown only to solve a learning challenge; it never changes the child’s persistent reward balance. | [U-02] |
-| **Attempt** | One submitted answer to a scored challenge; up to three are permitted. | [U-03] |
-| **Progressive hint** | Additional help shown after the first or second incorrect attempt without revealing the answer. | [U-03] |
-| **Game money / reward unit** | Fictional whole-number value earned from scored challenges or parent adjustments and spent only in the reward shop. It is never real currency. | [U-02, U-03, U-04, U-10] |
-| **Reward balance** | The child’s persistent game-money ledger, comprising money currently available plus money reserved by a pending request. | [U-09, U-10] |
-| **Available balance** | Reward balance not reserved and therefore available for a new reward request or negative adjustment. | [U-09, U-10] |
-| **Reserved amount** | The item price made unavailable while a request is pending; it is spent on approval or refunded on rejection/cancellation. | [U-09] |
-| **Reward shop** | The family-shared, parent-ordered catalog of real-world screen-time rewards; it is not the illustrated setting of learning questions. | [U-02, U-08] |
-| **Reward-shop item / screen-time voucher** | A parent-defined label, duration in minutes, and game-money price, such as “Nintendo — 30 minutes gameplay — 10 units.” It promises no device control by Mobey. | [U-02, U-08, U-09] |
-| **Media time** | The user’s example of a screen-time reward for watching videos. It is a custom label/use, not a fixed system category. | [U-02, U-08] |
-| **Gaming time** | The user’s example of a higher-value screen-time reward for playing games. It is a custom label/use, not a fixed system category. | [U-02, U-08] |
-| **Active saving goal** | The one reward-shop item a child selects for a progress display; it does not prevent requesting another affordable item. | [U-09] |
-| **Voucher request / redemption request** | A child’s request to exchange game money for a reward-shop item; it is pending until child cancellation or parent approval/rejection. | [U-09] |
-| **Approval** | The parent action that spends reserved money and immediately marks the voucher completed; Mobey does not track later consumption of screen time. | [U-09] |
-| **Parent adjustment** | An auditable, reasoned parent addition to or subtraction from one child’s reward balance. | [U-10] |
-| **Currency skin** | One of USD, EUR, GBP, JPY, or CNY used only to restyle the same numbers and game denominations 1:1. | [U-04] |
-| **Family timezone** | Browser-detected timezone stored on the family and refreshable only from the parent dashboard; it defines daily-cap reset. | [U-06] |
-| **Session summary** | Retained per-session aggregate results used for parent accuracy/progress views; it is not an individual question/answer log. | [U-15] |
-| **Product analytics** | Optional pseudonymous first-party events used to assess aggregate learning, motivation, and workflow behavior; they are distinct from essential session summaries. | [U-14, U-18] |
-| **Theme / learning scene** | Cosmetic setting chosen for a game session: everyday market, fantasy shop, or space station. It does not identify a purchased reward. | [U-07] |
+| Term                                       | Definition used in this baseline                                                                                                                                                                 | Source                   |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------ |
+| **Mobey**                                  | Working name for the product described by this document.                                                                                                                                         | [U-01]                   |
+| **Family**                                 | The MVP tenancy boundary: one parent login, zero to ten child profiles, a shared reward shop, one currency skin during play, one timezone, and zero or more authorized browsers.                 | [U-04, U-08, U-11, U-12] |
+| **Parent**                                 | The adult/guardian who owns the sole family login, defines rewards, manages profiles/progression, reviews learning summaries, and resolves requests.                                             | [U-11, U-15, U-16]       |
+| **Child**                                  | The intended ages 7–9 player represented by a nickname/avatar profile; no age, real name, or email is stored.                                                                                    | [U-01, U-11, U-14]       |
+| **Child profile**                          | A family-owned play identity with nickname, predefined avatar, PIN, progression, balance, goal, request history, and summaries.                                                                  | [U-11, U-15]             |
+| **Authorized browser**                     | A browser previously authorized through a parent sign-in where children may later select a profile and use its PIN. Authorization is browser-scoped and does not itself confer parent authority. | [U-12, U-13]             |
+| **Child PIN**                              | A parent-chosen 4–6 ASCII-digit string, preserving leading zeroes; it is family-local and unique among siblings, not an internet-wide credential.                                                | [U-11, U-12]             |
+| **Child session**                          | An authenticated child-mode session for one profile; at most one may be active, and concurrent second-browser access is blocked.                                                                 | [U-06, U-13]             |
+| **Game session**                           | A run of 10 scored learning challenges, targeted at about 10 minutes; starting it consumes a daily slot.                                                                                         | [U-06]                   |
+| **Daily session slot**                     | One of three game-session starts allowed to a child on a family-calendar day; abandonment does not restore it.                                                                                   | [U-06]                   |
+| **Placement round**                        | Six unscored one-answer questions, two per skill; prerequisite results select the starting stage. It consumes no daily slot and grants no money.                                                 | [U-05]                   |
+| **Stage**                                  | One of three ordered learning phases: exact amounts, affordability, then change. Ten completed sessions advance a stage.                                                                         | [U-05]                   |
+| **Learning challenge**                     | A themed, scored question inside a game session. Challenge values are temporary practice values.                                                                                                 | [U-02, U-03]             |
+| **Practice amount/budget**                 | Temporary money shown only to solve a learning challenge; it never changes the child’s persistent reward balance.                                                                                | [U-02]                   |
+| **Attempt**                                | One submitted answer to a scored challenge; up to three are permitted.                                                                                                                           | [U-03]                   |
+| **Progressive hint**                       | Additional help shown after the first or second incorrect attempt without revealing the answer.                                                                                                  | [U-03]                   |
+| **Game money / reward unit**               | Fictional whole-number value earned from scored challenges or parent adjustments and spent only in the reward shop. It is never real currency.                                                   | [U-02, U-03, U-04, U-10] |
+| **Reward balance**                         | The child’s persistent game-money ledger, comprising money currently available plus money reserved by a pending request.                                                                         | [U-09, U-10]             |
+| **Available balance**                      | Reward balance not reserved and therefore available for a new reward request or negative adjustment.                                                                                             | [U-09, U-10]             |
+| **Reserved amount**                        | The item price made unavailable while a request is pending; it is spent on approval or refunded on rejection/cancellation.                                                                       | [U-09]                   |
+| **Reward shop**                            | The family-shared, parent-ordered catalog of real-world screen-time rewards; it is not the illustrated setting of learning questions.                                                            | [U-02, U-08]             |
+| **Reward-shop item / screen-time voucher** | A parent-defined label, duration in minutes, and game-money price, such as “Nintendo — 30 minutes gameplay — 10 units.” It promises no device control by Mobey.                                  | [U-02, U-08, U-09]       |
+| **Media time**                             | The user’s example of a screen-time reward for watching videos. It is a custom label/use, not a fixed system category.                                                                           | [U-02, U-08]             |
+| **Gaming time**                            | The user’s example of a higher-value screen-time reward for playing games. It is a custom label/use, not a fixed system category.                                                                | [U-02, U-08]             |
+| **Active saving goal**                     | The one reward-shop item a child selects for a progress display; it does not prevent requesting another affordable item.                                                                         | [U-09]                   |
+| **Voucher request / redemption request**   | A child’s request to exchange game money for a reward-shop item; it is pending until child cancellation or parent approval/rejection.                                                            | [U-09]                   |
+| **Approval**                               | The parent action that spends reserved money and immediately marks the voucher completed; Mobey does not track later consumption of screen time.                                                 | [U-09]                   |
+| **Parent adjustment**                      | An auditable, reasoned parent addition to or subtraction from one child’s reward balance.                                                                                                        | [U-10]                   |
+| **Currency skin**                          | One of USD, EUR, GBP, JPY, or CNY used only to restyle the same numbers and game denominations 1:1.                                                                                              | [U-04]                   |
+| **Family timezone**                        | Browser-detected timezone stored on the family and refreshable only from the parent dashboard; it defines daily-cap reset.                                                                       | [U-06]                   |
+| **Session summary**                        | Retained per-session aggregate results used for parent accuracy/progress views; it is not an individual question/answer log.                                                                     | [U-15]                   |
+| **Product analytics**                      | Optional pseudonymous first-party events used to assess aggregate learning, motivation, and workflow behavior; they are distinct from essential session summaries.                               | [U-14, U-18]             |
+| **Theme / learning scene**                 | Cosmetic setting chosen for a game session: everyday market, fantasy shop, or space station. It does not identify a purchased reward.                                                            | [U-07]                   |
 
 ### Terminology distinctions
 
@@ -458,35 +458,35 @@ The following are derived safeguards that make the validated first-action, revoc
 
 ## 11. Risks and trade-offs
 
-| Risk/trade-off | Evidence and consequence | Required follow-up |
-|---|---|---|
-| Launch jurisdiction unknown | Child privacy, guardian consent, retention, disclosures, and currency presentation vary by country. [U-16] | Resolve before collecting pilot participant data, before any public availability, and before claiming compliance. |
-| Unverified, unrecoverable, immutable parent credentials | Typo/squatting of an allowlisted email or password loss can permanently strand an account; parent cannot change credentials. [U-12, U-16] | Define a safe pilot support, access-removal, and deletion runbook before participant onboarding; revisit verification/recovery for later scope. |
-| Currency skins may misteach real money | JPY/CNY/etc. share USD-like 1/2/5/10/20/50/100 values and switch 1:1; no explicit game-money disclosure is required. [U-04, U-25] | Test child/parent comprehension; PRD should state the educational claim narrowly. |
-| Reward is more screen time | The motivating reward is media/gaming time; the learning game itself also consumes screen time. [U-02, U-06] | Parent research and safeguarding review; assess whether three-session cap is acceptable. |
-| Completion is not mastery | A child advances after 10 completed sessions regardless of accuracy and stays in Change forever. [U-05] | Validate learning outcomes and watch accuracy trends; do not claim mastery without evidence. |
-| TTS inconsistency | Browser voices and availability differ by platform; text fallback prevents blocking but does not make narration equivalent. [U-07] | Browser/device user testing, especially with ages 7–9. |
-| No formal accessibility-conformance claim | Required accessible interaction practices do not by themselves prove target-age usability or formal conformance. [U-07] | Define browser/accessibility acceptance under OQ-10 and obtain target-age usability evidence before pilot use; revisit a formal conformance target before public launch. |
-| Raw analytics retention | Raw optional events remain in active storage until withdrawal/deletion, while backup/audit propagation and timing are unresolved. [U-14, U-26] | Resolve jurisdiction, retention schedule, deletion propagation, and evidence under OQ-01/OQ-06 before enabling analytics for pilot participants. |
-| Parent-entered content unmoderated | Private labels and reasons can contain inappropriate text visible to children. [U-25] | Accept for trusted pilot; define post-MVP moderation behavior before broader access. |
-| No product balance cap | Long-running or adjusted balances can exceed ordinary numeric types. [U-10] | Specify an exact safe storage type and explicit overflow response. |
-| Cost and scale unknown | ECS Fargate + ALB + RDS has standing cost; no expected users, peak concurrency, or ceiling is known. [U-20, U-22] | Cost model and load assumptions before architecture is locked in the technical specification. |
-| Private pilot allowlist is configuration-driven | Every participant addition requires controlled configuration/deployment work; unverified email means weak ownership proof. [U-12, U-16] | Document pilot operations and access-removal procedure. |
-| No explicit reward disclosure | Child may read a currency symbol as real value or interpret a request as guaranteed approval. [U-25] | Observe comprehension during pilot; revisit if confusion occurs. |
+| Risk/trade-off                                          | Evidence and consequence                                                                                                                       | Required follow-up                                                                                                                                                       |
+| ------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Launch jurisdiction unknown                             | Child privacy, guardian consent, retention, disclosures, and currency presentation vary by country. [U-16]                                     | Resolve before collecting pilot participant data, before any public availability, and before claiming compliance.                                                        |
+| Unverified, unrecoverable, immutable parent credentials | Typo/squatting of an allowlisted email or password loss can permanently strand an account; parent cannot change credentials. [U-12, U-16]      | Define a safe pilot support, access-removal, and deletion runbook before participant onboarding; revisit verification/recovery for later scope.                          |
+| Currency skins may misteach real money                  | JPY/CNY/etc. share USD-like 1/2/5/10/20/50/100 values and switch 1:1; no explicit game-money disclosure is required. [U-04, U-25]              | Test child/parent comprehension; PRD should state the educational claim narrowly.                                                                                        |
+| Reward is more screen time                              | The motivating reward is media/gaming time; the learning game itself also consumes screen time. [U-02, U-06]                                   | Parent research and safeguarding review; assess whether three-session cap is acceptable.                                                                                 |
+| Completion is not mastery                               | A child advances after 10 completed sessions regardless of accuracy and stays in Change forever. [U-05]                                        | Validate learning outcomes and watch accuracy trends; do not claim mastery without evidence.                                                                             |
+| TTS inconsistency                                       | Browser voices and availability differ by platform; text fallback prevents blocking but does not make narration equivalent. [U-07]             | Browser/device user testing, especially with ages 7–9.                                                                                                                   |
+| No formal accessibility-conformance claim               | Required accessible interaction practices do not by themselves prove target-age usability or formal conformance. [U-07]                        | Define browser/accessibility acceptance under OQ-10 and obtain target-age usability evidence before pilot use; revisit a formal conformance target before public launch. |
+| Raw analytics retention                                 | Raw optional events remain in active storage until withdrawal/deletion, while backup/audit propagation and timing are unresolved. [U-14, U-26] | Resolve jurisdiction, retention schedule, deletion propagation, and evidence under OQ-01/OQ-06 before enabling analytics for pilot participants.                         |
+| Parent-entered content unmoderated                      | Private labels and reasons can contain inappropriate text visible to children. [U-25]                                                          | Accept for trusted pilot; define post-MVP moderation behavior before broader access.                                                                                     |
+| No product balance cap                                  | Long-running or adjusted balances can exceed ordinary numeric types. [U-10]                                                                    | Specify an exact safe storage type and explicit overflow response.                                                                                                       |
+| Cost and scale unknown                                  | ECS Fargate + ALB + RDS has standing cost; no expected users, peak concurrency, or ceiling is known. [U-20, U-22]                              | Cost model and load assumptions before architecture is locked in the technical specification.                                                                            |
+| Private pilot allowlist is configuration-driven         | Every participant addition requires controlled configuration/deployment work; unverified email means weak ownership proof. [U-12, U-16]        | Document pilot operations and access-removal procedure.                                                                                                                  |
+| No explicit reward disclosure                           | Child may read a currency symbol as real value or interpret a request as guaranteed approval. [U-25]                                           | Observe comprehension during pilot; revisit if confusion occurs.                                                                                                         |
 
 ## 12. Discovery-time code and repository mismatches
 
 This section records the repository snapshot taken during discovery; it is not a current inventory.
 
-| Finding | Evidence | Mismatch/impact |
-|---|---|---|
-| No product code existed | The root inventory contained no `apps/`, `packages/`, `infra/`, tests, Docker files, or prior docs. [C-01] | Every domain term and requirement was greenfield; there was no existing implementation behavior to rely on. |
-| Sonar source/test paths did not exist | `sonar-project.properties:3-4` at the snapshot. [C-02] | The discovery-time analysis could not describe a real source tree. The selected future paths mostly matched the intended monorepo but were deferred to a later implementation stage. |
-| CDK contradicted Terraform | `sonar-project.properties:5` excluded `infra/cdk/**`; assignment and interview required `infra/terraform`. [A, C-02, U-19] | Sonar configuration encoded a stale infrastructure assumption. User explicitly said to retain SonarCloud and update the old file later. |
-| Test patterns were JavaScript-only | `sonar-project.properties:6` included only `*.test.js` and `*.spec.js`; the selected stack was TypeScript. [C-02, U-19] | Future TypeScript tests would not have matched the snapshot’s inclusion rule. |
-| Sonar test paths omitted web tests | `sonar-project.properties:4` named API/package/root tests but no `apps/web` tests. [C-02] | This conflicted with the required critical browser end-to-end test coverage. [U-20] |
-| Ignore rules were greenfield-incomplete | `.gitignore` contained only `.env`, `.pi`, and `.DS_Store` at the snapshot. [C-03] | Later stack artifacts (dependencies, builds, Terraform local/state files, test output) were not addressed; the snapshot was not an approved final policy. |
-| No `AGENT.md` or `AGENTS.md` existed at the snapshot | Discovery-time root inventory. [C-01] | The required conventional name for the later guidance artifact was `AGENTS.md`. [U-23] |
+| Finding                                              | Evidence                                                                                                                   | Mismatch/impact                                                                                                                                                                      |
+| ---------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| No product code existed                              | The root inventory contained no `apps/`, `packages/`, `infra/`, tests, Docker files, or prior docs. [C-01]                 | Every domain term and requirement was greenfield; there was no existing implementation behavior to rely on.                                                                          |
+| Sonar source/test paths did not exist                | `sonar-project.properties:3-4` at the snapshot. [C-02]                                                                     | The discovery-time analysis could not describe a real source tree. The selected future paths mostly matched the intended monorepo but were deferred to a later implementation stage. |
+| CDK contradicted Terraform                           | `sonar-project.properties:5` excluded `infra/cdk/**`; assignment and interview required `infra/terraform`. [A, C-02, U-19] | Sonar configuration encoded a stale infrastructure assumption. User explicitly said to retain SonarCloud and update the old file later.                                              |
+| Test patterns were JavaScript-only                   | `sonar-project.properties:6` included only `*.test.js` and `*.spec.js`; the selected stack was TypeScript. [C-02, U-19]    | Future TypeScript tests would not have matched the snapshot’s inclusion rule.                                                                                                        |
+| Sonar test paths omitted web tests                   | `sonar-project.properties:4` named API/package/root tests but no `apps/web` tests. [C-02]                                  | This conflicted with the required critical browser end-to-end test coverage. [U-20]                                                                                                  |
+| Ignore rules were greenfield-incomplete              | `.gitignore` contained only `.env`, `.pi`, and `.DS_Store` at the snapshot. [C-03]                                         | Later stack artifacts (dependencies, builds, Terraform local/state files, test output) were not addressed; the snapshot was not an approved final policy.                            |
+| No `AGENT.md` or `AGENTS.md` existed at the snapshot | Discovery-time root inventory. [C-01]                                                                                      | The required conventional name for the later guidance artifact was `AGENTS.md`. [U-23]                                                                                               |
 
 No source-code naming conflict could be mapped at the discovery-time snapshot because there were no domain identifiers in code. [C-01, C-02]
 

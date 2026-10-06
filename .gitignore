@@ -12,8 +12,9 @@ yarn-error.log*
 lerna-debug.log*
 pnpm-debug.log*
 
-# Turborepo cache
+# Turborepo and Sonar scanner caches
 .turbo/
+.scannerwork/
 
 # TypeScript, build, test, coverage, and Playwright outputs
 *.tsbuildinfo
@@ -47,6 +48,25 @@ override.tf
 override.tf.json
 *_override.tf
 *_override.tf.json
+
+# Credential material and local container storage (never build/test inputs)
+.aws/
+.azure/
+.oci/
+.ssh/
+.netrc
+.pgpass
+.git-credentials
+*.pem
+*.key
+*.p12
+*.pfx
+/volumes/
+/.volumes/
+
+# Terraform plan JSON and captured outputs can contain private values
+*.tfplan.json
+terraform-output*.json
 
 # Keep lockfiles, migrations, generated API contracts, source, config, and docs trackable
 !/pnpm-lock.yaml

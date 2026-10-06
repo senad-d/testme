@@ -9,18 +9,21 @@
     "contract:generate": "pnpm build && node dist/openapi.js --write",
     "migrate": "node dist/database/migrate.js",
     "type-check": "pnpm --filter @mobey/shared build && tsc --project tsconfig.json --noEmit",
-    "test": "pnpm build && vitest run --passWithNoTests"
+    "lint": "eslint . --max-warnings=0",
+    "type-check:tests": "tsc --project tsconfig.eslint.json",
+    "test:coverage": "pnpm build && vitest run --coverage",
+    "test": "pnpm build && vitest run"
   },
   "dependencies": {
     "@mobey/shared": "workspace:*",
     "@nestjs/common": "12.0.1",
     "@nestjs/core": "12.0.1",
-    "@nestjs/platform-fastify": "12.0.1",
+    "@nestjs/platform-fastify": "12.0.2",
     "@nestjs/swagger": "12.0.1",
     "class-transformer": "0.5.1",
     "class-validator": "0.15.1",
     "drizzle-orm": "0.45.2",
-    "fastify": "5.12.1",
+    "fastify": "5.12.5",
     "pg": "8.23.0",
     "reflect-metadata": "0.2.2",
     "rxjs": "7.8.2"
@@ -31,6 +34,7 @@
     "@testcontainers/postgresql": "12.1.0",
     "@types/node": "24.13.3",
     "@types/pg": "8.23.1",
+    "@vitest/coverage-v8": "4.1.11",
     "ajv": "8.20.0",
     "drizzle-kit": "0.31.10",
     "prettier": "3.9.6",

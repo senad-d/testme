@@ -115,7 +115,7 @@ export function createOpenApiDocument(application: NestFastifyApplication): Open
         description: 'Canonical lowercase UUID v4. Missing or invalid values are replaced.',
         schema: { type: 'string', pattern: REQUEST_ID_PATTERN },
       });
-      operation.responses['default'] = {
+      operation.responses.default = {
         description:
           'Redacted RFC 9457 error. Stable domain codes are declarations, not implemented domain behavior. Retry-After is supplied by approved rate-limit policy only.',
         content: {
