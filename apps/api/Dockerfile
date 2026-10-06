@@ -35,4 +35,5 @@ COPY --from=build --chown=node:node /workspace/apps/api/dist/ ./dist/
 COPY --from=build --chown=node:node /workspace/apps/api/src/database/migrations/ ./src/database/migrations/
 USER node
 EXPOSE 3000
+HEALTHCHECK CMD ["node", "-e", "fetch('http://127.0.0.1:3000/api/v1/health/live').then(r => process.exit(r.status === 200 ? 0 : 1)).catch(() => process.exit(1))"]
 CMD ["node", "dist/main.js"]

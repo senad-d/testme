@@ -89,6 +89,8 @@ remains unavailable until real validated DB configuration and migrations exist.
 For later controlled migration jobs its existing entrypoint is
 `node dist/database/migrate.js`. No production image automatically seeds or migrates.
 
+The production images include liveness probes (API `/health/live`, static web `/`).
+These are not deployed readiness, scaling or rollout-policy decisions.
 The web production image serves static assets on port 8080 solely for image smoke
 evidence. It does not proxy `/api`; actual same-origin CloudFront routing,
 production configuration and AWS deployment belong to later tasks. No deployment,
@@ -114,7 +116,43 @@ web/API reload with unchanged image IDs, persistent migration ledger, failed
 migration ordering, build-context exclusion and runnable non-root production stages.
 
 See [the check registry](docs/testing.md) for exact focused/full commands, Docker
-Testcontainers setup and known limitations. Root lint currently executes zero
-package lint tasks; Task 14/#23 owns CI/Sonar wiring. The separate moderate esbuild
-advisory through Drizzle Kit is not remediated here. Passing this local stack does
-not imply those gates or the deferred seed are complete.
+Testcontainers setup and known limitations. Passing this local stack does not
+establish cloud deployment, live GitHub/Sonar enforcement or the deferred seed.
+
+## PR quality automation — Task 14 / issue #23
+
+With Node 24.20.0 and pnpm 11.25.0:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm format:check
+pnpm lint --force
+pnpm build --force
+pnpm type-check --force
+pnpm exec turbo run type-check:tests --force
+pnpm test:ci-policy
+pnpm contract --force
+pnpm audit
+```
+
+With an explicitly selected local Docker daemon and Chromium installed using the
+browser path above, run `pnpm test:coverage` and `pnpm --filter @mobey/e2e test`.
+`pnpm test:platform` selects the new production-built browser smoke: unique images,
+project/volume, random loopback port and a disposable source copy. Its test-only
+Nginx proxy joins the unchanged production-built SPA to the migrated API; the API
+uses `NODE_ENV=test` solely for synthetic local PostgreSQL, not deployed TLS proof.
+The existing Compose suite still proves Watch behavior and development guards.
+
+The workflow runs on PRs and main pushes with read-only permissions and pinned
+actions/tools. It rejects secrets/generated paths in the clean checkout before
+installing dependencies. Every quality/security check remains blocking, including
+all-severity dependency/image scans; unfixed findings are not ignored. SonarCloud
+waits for its quality gate using the analysis-scoped `SONAR_TOKEN` secret reference.
+A missing token (including on fork PRs) fails closed. Never use `pull_request_target`
+or a privileged checkout to work around missing secrets.
+
+A repository administrator must establish live workflow/Sonar evidence and require
+`CI required` through repository settings; this source change does not configure
+protection, reviews or bypass actors. Terraform is absent and no cloud plan runs.
+The workflow fails if Terraform is introduced until its approved owner adds
+isolated format/validate/security/plan checks. There is no deployment job.

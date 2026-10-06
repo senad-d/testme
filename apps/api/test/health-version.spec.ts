@@ -1,5 +1,8 @@
 import { readFileSync } from 'node:fs';
 
+import type * as AppModule from '../src/app.module.js';
+import type * as MainModule from '../src/main.js';
+
 import {
   getApplicationDescription,
   getApplicationName,
@@ -10,12 +13,10 @@ import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest';
 
 // API builds do not emit declarations. Use source types for the matching compiled
 // modules while exercising emitted Nest decorator metadata at runtime.
-const { HealthController }: typeof import('../src/app.module.js') = await import(
-  new URL('../dist/app.module.js', import.meta.url).href
-);
-const { createApplication }: typeof import('../src/main.js') = await import(
-  new URL('../dist/main.js', import.meta.url).href
-);
+const compiledApp: unknown = await import(new URL('../dist/app.module.js', import.meta.url).href);
+const compiledMain: unknown = await import(new URL('../dist/main.js', import.meta.url).href);
+const { HealthController } = compiledApp as typeof AppModule;
+const { createApplication } = compiledMain as typeof MainModule;
 
 const apiPackage = JSON.parse(
   readFileSync(new URL('../package.json', import.meta.url), 'utf8'),
@@ -23,16 +24,18 @@ const apiPackage = JSON.parse(
 
 let application: Awaited<ReturnType<typeof createApplication>>;
 let http: FastifyInstance;
+let closeApplication: (() => Promise<void>) | undefined;
 
 beforeAll(async () => {
   vi.stubEnv('DATABASE_URL', undefined);
   application = await createApplication();
+  closeApplication = () => application.close();
   await application.init();
   http = application.getHttpAdapter().getInstance();
 });
 
 afterAll(async () => {
-  await application?.close();
+  await closeApplication?.();
   vi.unstubAllEnvs();
 });
 

@@ -28,3 +28,4 @@ FROM nginxinc/nginx-unprivileged:1.28-alpine@sha256:7377697a821c131a924a7105fafb
 COPY --from=build /workspace/apps/web/dist/ /usr/share/nginx/html/
 USER 101
 EXPOSE 8080
+HEALTHCHECK CMD ["wget", "--spider", "-q", "http://127.0.0.1:8080/"]

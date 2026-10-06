@@ -1,5 +1,129 @@
 # Test check registry
 
+## Task 14 blocking PR quality (#23)
+
+Trace: implementation-plan Task 14; U-20; technical specification §14.2 and §17.1.
+Scope expansion was user-approved on 2026-10-06 (objective 277). Historical dated
+Task 11/13 evidence below describes those revisions, not present CI activation.
+No domain behavior, AWS resources, OQ approval or repository settings are added.
+
+| Check                              | Command                                                                   | Evidence scope                                                                                                                                                                                                                                                                                                      |
+| ---------------------------------- | ------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Repository formatting              | `pnpm format:check`                                                       | Authored source/config/docs and generated contracts; excludes private/output state and IssueMe-generated snapshots. Four planning documents receive formatting-only normalization.                                                                                                                                  |
+| Strict lint                        | `pnpm lint --force`                                                       | Five workspace lint tasks plus root CI scripts; typed tests/configs included, zero warnings allowed.                                                                                                                                                                                                                |
+| Source/test types                  | `pnpm type-check --force && pnpm exec turbo run type-check:tests --force` | Production projects plus API/web/shared test/config projects, without skipping library checks. E2E is in its normal project.                                                                                                                                                                                        |
+| Workflow regression                | `pnpm test:ci-policy`                                                     | Pinned actions/read-only permissions, required gates, bypass mutations, aggregate shell for 25 result combinations, Terraform HCL/JSON rejection, hygiene, LCOV path/record negatives and installer symlink confinement.                                                                                            |
+| Unit/component/PostgreSQL coverage | `pnpm test:coverage`                                                      | Shared unit tests, real React DOM readiness checks (including malformed response shapes and non-200 success statuses) and all API tests including Testcontainers PostgreSQL. Requires explicit local Docker. No absent-test success for these suites. Content remains an empty seam, not approved learning content. |
+| Coverage normalization             | `node scripts/prepare-coverage.mjs`                                       | Requires three nonempty LCOV reports and existing workspace TS paths; maps them to root-relative paths for Sonar. Never use partial API selections as full CI coverage evidence.                                                                                                                                    |
+| Browser and production images      | `pnpm --filter @mobey/e2e test`                                           | Compose Watch regression mutates the extracted app heading and API route, fails immediately on missing anchors and restores sources; production-built platform smoke. Chromium and local Docker required. `pnpm test:platform` selects just the new smoke.                                                          |
+| Contract drift                     | `pnpm contract --force`                                                   | Generator-owned bytes checked without rewriting reviewed output.                                                                                                                                                                                                                                                    |
+| Dependency security                | `pnpm audit`                                                              | All locked dependencies/severities, no advisory exclusions.                                                                                                                                                                                                                                                         |
+| Clean-checkout hygiene             | `node scripts/check-hygiene.mjs`                                          | Run before install/build only on clean source. Rejects private/generated paths and symlinks without reading their contents; reviewed env templates, migration SQL, contracts and lockfiles remain allowed. Not a command to run on an ordinary installed/private local checkout.                                    |
+
+`.github/workflows/ci.yml` additionally runs checksum-pinned actionlint, Gitleaks
+(redacted), Trivy configuration checks and all-severity scans of both production
+images. Tools live under runner/system temporary storage; pins and installer are
+in `scripts/ci-tools.json` and `scripts/install-ci-tool.mjs`. No unfixed findings,
+scanner failures or missing coverage are ignored. Gitleaks excludes dependency,
+Git/agent/cache trees, not authored source. An exact-match regex allowlist accepts
+only the public `OpenAPI SHA-256` integrity marker, not its entire generated file.
+`scripts/test-gitleaks.mjs` proves a fabricated credential in that same file still
+fails scanning; never replace the regex with a whole-file path allowlist.
+Trivy configuration excludes those
+same non-source dependency/cache trees. The early hygiene gate rejects such paths
+if accidentally included in a clean source checkout.
+
+The workflow checks the runner's local Unix Docker socket before database/browser
+commands. The new smoke uses a whitelisted temporary source copy, UUID-namespaced
+images/project/volume and random loopback port; it removes only its own resources.
+It runs real migrations and verifies browser-observed readiness through a test-only
+Nginx routing layer over the same production-built SPA assets and unchanged API image.
+The routing layer uses its own image rather than a host bind mount, so macOS VM
+mount assumptions cannot change the target. Cleanup failure preserves the owned
+project's recovery files and fails the suite rather than hiding orphaned resources.
+`NODE_ENV=test` is explicit for synthetic PostgreSQL without TLS. Neither that proxy
+nor image liveness probes constitute deployed CloudFront/TLS/rollout-policy evidence.
+No participant data or implicit `.env` is used.
+
+Security remediation pins the Fastify adapter/runtime patch releases and narrow
+transitive overrides for esbuild, undici, fast-uri, brace-expansion, grpc-js and
+source-map-js. A PostCSS patch-level override fixes the missing `NodeProps` declaration
+exposed when type-checking Vitest configs; no `skipLibCheck` workaround is used.
+Existing API/contract and exact-money tests protect these compatibility boundaries.
+
+Sonar includes actual TypeScript web/API/shared/content/E2E tests, excludes generated,
+vendor, build and Terraform state/plan output, and imports normalized LCOV.
+`SONAR_TOKEN` must be an analysis-scoped repository secret reference; it is never
+written to files. Missing token, failed quality gate or timeout fails the job,
+including on fork PRs. Do not introduce `pull_request_target` to bypass that boundary.
+`CI required` uses `always()` and fails unless both quality and Sonar jobs succeeded.
+An administrator must separately require that check and establish live PR/Sonar
+results; file presence and local negative probes do not prove protected-main behavior.
+Intentional format/type/test/contract/Sonar failures still require a disposable live
+PR for GitHub-level acceptance evidence.
+
+Terraform does not exist. No region/account/backend/OQ default or cloud plan is
+invented. A fail-closed surface guard rejects newly introduced Terraform until its
+owner adds approved isolated format/validate/security/plan checks, using the local
+emulator required by agent guidance. There are no apply/deploy jobs or AWS permissions.
+
+### Local implementation verification — 2026-10-06
+
+Node 24.20.0 / pnpm 11.25.0 verification passed frozen install, repository format,
+five-workspace/root-script typed lint, uncached build/source/test type-checks,
+uncached contract drift, peer compatibility and all-severity audit (zero advisories).
+Shared tests passed 172 cases; web component tests passed six; three non-database
+API suites passed 108; the focused database-tooling selection passed six while
+excluding the ten real-PostgreSQL cases. Nine CI-policy tests passed, including
+25 aggregate-result combinations and actual missing-token failure. These are
+working-tree results, not a tested publication revision.
+
+Isolated probes proved format/lint/type checks reject broken TS and component
+checks reject broken readiness. The redacted scanner control accepts the public
+schema hash but rejects a fabricated credential in the same generated file.
+Actionlint passed; the rendered production-smoke Compose model passed explicit
+`--env-file /dev/null` validation. A sanitized source copy passed clean-source
+hygiene and Gitleaks (zero findings). Trivy found the two pre-existing missing-image
+HEALTHCHECKs before correction and zero findings in both Dockerfiles afterwards.
+The source copy is not clean-clone or tracked-file evidence.
+
+The explicitly selected local Colima socket was unavailable. No PostgreSQL,
+Compose/browser runtime, production image build/health or image vulnerability-scan
+pass is claimed. Eight Playwright cases were discovered but not executed. Live
+GitHub/Sonar runs, intentional-failure PR evidence and repository-settings
+verification also remain required before issue acceptance; no cloud target was used.
+
+### Exact implementation manifest
+
+- `.github/workflows/ci.yml`, `sonar-project.properties`, `.gitignore`,
+  `.prettierignore`, `.gitleaks.toml`, `eslint.config.mjs`, `package.json`,
+  `pnpm-lock.yaml`, `pnpm-workspace.yaml`, `turbo.json`.
+- `scripts/check-hygiene.mjs`, `scripts/ci-policy.test.mjs`, `scripts/ci-tools.json`,
+  `scripts/install-ci-tool.mjs`, `scripts/prepare-coverage.mjs`, `scripts/test-gitleaks.mjs`.
+- `apps/api/package.json`, `apps/api/Dockerfile`, `apps/api/tsconfig.eslint.json`,
+  `apps/api/vitest.config.ts`, `apps/api/src/openapi.ts`,
+  `apps/api/test/health-version.spec.ts`, `apps/api/test/http-contract.spec.ts`,
+  `apps/api/test/local-runtime.spec.ts` (typed lint/cleanup companions, not public API changes).
+- `apps/web/package.json`, `apps/web/Dockerfile`, `apps/web/tsconfig.eslint.json`,
+  `apps/web/vitest.config.ts`, `apps/web/src/main.tsx`, `apps/web/src/app.tsx`,
+  `apps/web/src/app.test.tsx` (extract existing readiness view without changing behavior).
+- `packages/shared/package.json`, `packages/shared/tsconfig.eslint.json`,
+  `packages/shared/vitest.config.ts`, `packages/shared/src/money.ts` (lint-equivalent
+  split exact-match guards and explicit BigInt string formatting, no money-boundary change).
+- `packages/content/package.json`, `packages/content/tsconfig.eslint.json`.
+- `tests/e2e/package.json`, `tests/e2e/platform-smoke.spec.ts`,
+  `tests/e2e/local-compose.spec.ts` (remove unnecessary async only).
+- `README.md`, `AGENTS.md`, `docs/testing.md`,
+  `docs/plans/mobey-mvp-implementation-plan.md` (scope alignment and formatting),
+  `docs/discovery/mobey-initial-product-discovery.md`, `docs/product/mobey-prd.md`,
+  `docs/technical/mobey-technical-spec.md` (last three formatting only).
+
+Synchronize the live issue/PR manifest with these user-approved companions before
+publication. Foundational ignore rules from #71 remain intact; additions cover
+credential files, plan JSON/captured outputs, scanner cache and local volume paths.
+Ignore rules and scanners prevent accidents, not deliberate force-adds or credentials
+whose format no scanner recognizes; templates remain subject to redacted scanning.
+
 Run checks with Node 24.20.0 and pnpm 11.25.0. PostgreSQL checks require a reachable
 Docker daemon; a tooling-only pass is **not** migration acceptance. API build and
 type-check commands build the shared runtime dependency first, including direct package
@@ -137,7 +261,7 @@ OQ-04 lockout durations and OQ-11 balance ceilings remain explicit decision gate
 | Workspace build                        | `pnpm build`                                                                                                                                                                                                                                                                                                                                       | Builds all implemented workspace packages, including generated TypeScript.                                                                                                                                                                                                                                                                                                                                                              | Workspace suite                                               |
 | Workspace type-check                   | `pnpm type-check`                                                                                                                                                                                                                                                                                                                                  | Runs declared package checks with their upstream build dependencies.                                                                                                                                                                                                                                                                                                                                                                    | Workspace suite                                               |
 | Workspace tests                        | `pnpm test --env-mode=loose`                                                                                                                                                                                                                                                                                                                       | Runs declared suites, including real PostgreSQL migration/readiness tests and the HTTP contract suite. Docker is required.                                                                                                                                                                                                                                                                                                              | Workspace suite; not browser-journey or release evidence      |
-| Workspace lint graph                   | `pnpm lint`                                                                                                                                                                                                                                                                                                                                        | Executes the declared lint graph; currently **no package lint tasks exist**, so success is not lint coverage.                                                                                                                                                                                                                                                                                                                           | Known Task 14/#23 limitation                                  |
+| Workspace lint graph                   | `pnpm lint`                                                                                                                                                                                                                                                                                                                                        | Runs strict typed lint over five implemented workspaces plus root CI scripts; rejects warnings. Task 14 wires the previously empty graph.                                                                                                                                                                                                                                                                                               | Known Task 14/#23 limitation                                  |
 | Contract-change formatting             | `pnpm --filter @mobey/api exec prettier --check src/main.ts src/app.module.ts src/common/http/problem-details.filter.ts src/openapi.ts test/http-contract.spec.ts package.json ../../packages/shared/src/generated/api.ts ../../packages/shared/src/index.ts ../../pnpm-lock.yaml ../../pnpm-workspace.yaml ../../docs/testing.md ../../AGENTS.md` | Checks every changed source, generated artifact, manifest, and document using the pinned formatter and repository configuration.                                                                                                                                                                                                                                                                                                        | Exact Task 13 manifest                                        |
 
 In an isolated worktree, set `TURBO_CACHE_DIR="$PWD/.turbo/cache"` before workspace
@@ -150,7 +274,7 @@ Additional tooling checks for this manifest:
 | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------- |
 | Contract test TypeScript      | `pnpm --filter @mobey/api exec tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --experimentalDecorators --emitDecoratorMetadata --exactOptionalPropertyTypes --noUncheckedIndexedAccess --noImplicitOverride --noUnusedLocals --noUnusedParameters --noPropertyAccessFromIndexSignature --verbatimModuleSyntax test/http-contract.spec.ts ../../packages/shared/src/money.test.ts ../../packages/shared/src/index.test.ts` | Type-checks the HTTP contract and shared test files plus imported production code without skipping library checks. Explicit options are needed because test files are excluded from the application tsconfig; production still receives its normal project check. | Focused test compiler check                    |
 | Dependency peer compatibility | `pnpm peers check`                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Verifies declared dependency peer ranges, including Nest 12 and TypeScript 6 compatibility.                                                                                                                                                                       | Workspace dependency check                     |
-| Dependency advisory inventory | `pnpm audit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Reports vulnerabilities in the locked graph. The new YAML-parser advisories are remediated; the pre-existing moderate Drizzle Kit/esbuild advisory still makes this command exit nonzero.                                                                         | Inventory, not a passing security/release gate |
+| Dependency advisory inventory | `pnpm audit`                                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Scans the locked graph at all severities. Task 14 remediates identified direct/transitive advisories; any new advisory remains blocking.                                                                                                                          | Inventory, not a passing security/release gate |
 
 For local Colima PostgreSQL verification, export
 `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock` and
@@ -159,7 +283,7 @@ or workspace suites. The workspace command uses Turbo's loose environment mode
 because the current task configuration does not forward these variables in strict
 mode; otherwise Ryuk receives a host-only socket path and container startup fails.
 This changes environment forwarding, not test selection or assertions. No `.env`
-file is loaded. CI environment allowlisting remains Task 14/#23 work.
+file is loaded. Task 14 CI invokes coverage/E2E package scripts directly with explicit runner-local Docker/browser configuration, not loose Turbo forwarding.
 
 ### Runtime and generation boundaries
 
@@ -217,15 +341,15 @@ file is loaded. CI environment allowlisting remains Task 14/#23 work.
   `@hey-api/json-schema-ref-parser>js-yaml` override pins patched `4.3.2`, removing
   GHSA-52cp-r559-cp3m and GHSA-5p4m-2wfm-xmqj from the generator's dependency chain.
   This leaves Swagger's separate YAML dependency and unrelated tooling unchanged.
-- Task 14/#23 owns CI workflow wiring, blocking lint, and Sonar correction. The
+- Task 14/#23 supplies CI workflow wiring, typed lint and Sonar correction. The
   local contract check does not establish branch protection or a passing release
   gate. Use the direct API command or `pnpm contract --force` for explicit uncached
   evidence. The shared workspace dependency puts generated-file changes in the API
   contract task's upstream build hash; this repairs the earlier artifact-only cache
   gap. CI must still define all relevant inputs/environment explicitly, including
-  the web compiler configuration consumed by the package-entrypoint test. Root lint
-  remains a no-op; the separately disclosed Drizzle Kit advisory remains unrelated
-  to this work.
+  the web compiler configuration consumed by the package-entrypoint test. Task 14
+  uses uncached CI checks, real typed lint and all-severity dependency scanning;
+  its targeted esbuild override removes the earlier Drizzle Kit advisory.
 
 The contract test was confirmed to fail when global error mapping, unknown-field
 rejection, request-ID headers, or stale-output detection was disabled (four focused
@@ -250,7 +374,7 @@ OpenAPI route check, bringing the focused suite to 91 cases.
 | Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, visible unavailable/ready browser states across database failure/recovery, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
 | Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Configuration smoke                                                          |
 | Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Workspace checks                                                             |
-| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Known-limited workspace command                                              |
+| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Runs strict typed source/test lint for all five workspaces and root CI scripts; Task 14 replaces the formerly empty graph.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Known-limited workspace command                                              |
 | Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Workspace tests; requires Docker and Chromium                                |
 
 Install dependencies with `pnpm install --frozen-lockfile` using the versions above.

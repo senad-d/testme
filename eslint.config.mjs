@@ -19,6 +19,10 @@ export default tseslint.config(
     // with the same name remains subject to linting.
     ignores: [
       '.turbo/**',
+      '.pi/**',
+      'coverage/**',
+      'test-results/**',
+      'playwright-report/**',
       '**/node_modules/**',
       'apps/*/{.turbo,.vite,build,coverage,dist,playwright-report,test-results}/**',
       'packages/*/{.turbo,.vite,build,coverage,dist,playwright-report,test-results}/**',
@@ -40,7 +44,11 @@ export default tseslint.config(
     files: typedSourceFiles,
     languageOptions: {
       parserOptions: {
-        projectService: true,
+        project: [
+          'apps/*/tsconfig.eslint.json',
+          'packages/*/tsconfig.eslint.json',
+          'tests/e2e/tsconfig.json',
+        ],
         tsconfigRootDir: import.meta.dirname,
       },
     },
@@ -102,9 +110,11 @@ export default tseslint.config(
     name: 'mobey/node-globals',
     files: [
       'eslint.config.mjs',
+      'scripts/**/*.mjs',
       'apps/api/**/*.{js,ts,mjs,mts,cjs,cts}',
       'apps/web/*.config.{js,ts,mjs,mts,cjs,cts}',
       'packages/*/test/**/*.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
+      'packages/*/*.config.{js,ts,mjs,mts,cjs,cts}',
       'packages/**/*.{spec,test}.{js,jsx,ts,tsx,mjs,mts,cjs,cts}',
       'tests/e2e/**/*.{js,ts,mjs,mts,cjs,cts}',
     ],

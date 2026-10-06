@@ -10,8 +10,13 @@
       "dependsOn": ["^build", "^type-check"],
       "outputs": []
     },
+    "type-check:tests": {
+      "dependsOn": ["^build"],
+      "outputs": []
+    },
     "lint": {
-      "dependsOn": ["^lint"],
+      "inputs": ["$TURBO_DEFAULT$", "$TURBO_ROOT$/eslint.config.mjs"],
+      "dependsOn": ["^build", "^lint"],
       "outputs": []
     },
     "test": {

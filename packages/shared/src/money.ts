@@ -19,7 +19,10 @@ export function parseGameMoney(input: string): bigint {
 
   const match = /^[0-9]+(?:\.[0-9]{1,2})?$/u.exec(input);
   // JavaScript's $ also matches before a final line terminator; require the full input.
-  if (match === null || match[0] !== input) {
+  if (match === null) {
+    throw new GameMoneyError('FORMAT');
+  }
+  if (match[0] !== input) {
     throw new GameMoneyError('FORMAT');
   }
 
@@ -96,5 +99,5 @@ export function formatGameMoney(minorUnits: bigint): string {
 
   const integer = minorUnits / 100n;
   const fraction = (minorUnits % 100n).toString().padStart(2, '0');
-  return `${integer}.${fraction}`;
+  return `${integer.toString()}.${fraction}`;
 }

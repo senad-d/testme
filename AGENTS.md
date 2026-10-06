@@ -58,8 +58,8 @@ The selected design is a TypeScript modular monolith:
 - Docker/Compose locally and Terraform-managed AWS deployment.
 
 The application/package roots and local Compose stack below now exist. E2E includes
-local Compose smoke coverage, not domain journeys; Terraform and GitHub workflows
-remain intended future surfaces in this checkout:
+local Compose and production-built platform smoke coverage, not domain journeys.
+The PR quality workflow exists; Terraform and deployment remain future surfaces:
 
 ```text
 apps/web/                         React/Vite UI
@@ -70,7 +70,7 @@ tests/e2e/                        critical Playwright journeys
 infra/terraform/bootstrap/        remote-state prerequisites
 infra/terraform/modules/          AWS modules
 infra/terraform/environments/     nonprod and prod roots
-.github/                          issue/PR templates, CODEOWNERS; future workflows
+.github/                          issue/PR templates, CODEOWNERS, PR quality workflow
 compose.yaml                      local development stack
 ```
 
@@ -130,6 +130,12 @@ Use the pinned Node 24.20.0 and pnpm 11.25.0 toolchain. Install dependencies wit
 `pnpm install --frozen-lockfile`; do not use the default Node 26 runtime as verification
 evidence. The workspace has build, type-check, test, and contract commands. Exact
 commands and their evidence scope live in [`docs/testing.md`](docs/testing.md).
+Run `pnpm format:check`, `pnpm lint --force`, `pnpm test:ci-policy` and
+`pnpm exec turbo run type-check:tests --force` for the quality tooling. With an
+explicit runner-local Docker target, run `pnpm test:coverage` and
+`pnpm --filter @mobey/e2e test` (install Chromium first). `pnpm test:platform`
+selects just the production-built browser smoke. See the registry for isolated
+resources and the same-origin test proxy, which is not AWS routing.
 Clean-checkout and publication evidence must be established by the delivery workflow;
 a working-tree check alone is not clean-clone or release evidence.
 
@@ -175,7 +181,7 @@ Tests must follow the risk:
 - Playwright tests for critical parent/child Family-loop journeys and approved responsive/accessibility cases;
 - deterministic generated-contract checks, security/redaction checks, production image builds, and affected Terraform checks.
 
-The intended pull-request gate blocks on format, lint, type-check, unit/component tests, affected API/database integration tests, generated-contract diff, critical browser smoke tests, image build, affected Terraform format/validate/plan, security scans, and SonarCloud. No such workflow exists yet. The current `sonar-project.properties` is stale: it has JavaScript-only test patterns, omits web/E2E test roots, and excludes CDK rather than Terraform. Retain SonarCloud and correct it when the real TypeScript/test paths are established.
+`.github/workflows/ci.yml` runs frozen install, clean-checkout hygiene, format, typed source/test lint, source/test type-checks, unit/component and real-PostgreSQL tests, contract drift, Compose and production-built browser smoke, production image builds, dependency/secret/configuration/image security scans and SonarCloud quality-gate waiting. `CI required` fails on any failed, skipped or cancelled dependency. Sonar includes TypeScript web/API/package/E2E tests and normalized LCOV; generated/vendor/build/state output is excluded. Missing `SONAR_TOKEN`, including on fork PRs, fails closed; never use `pull_request_target` to expose secrets to untrusted code. Terraform is absent: the workflow rejects newly introduced Terraform until its owner adds approved isolated format/validate/security/plan checks. No cloud credentials or plans run here. File configuration is not evidence of active GitHub checks, branch protection or a passing Sonar gate; establish those separately. See `docs/testing.md` for commands, scope and limitations.
 
 Never weaken, skip, mock away, quarantine, or relabel a required check to obtain a pass. Do not claim that automation proves educational suitability, child usability, accessibility conformance, legal approval, or release readiness. Attach evidence from the exact commit and environment under review.
 
@@ -221,6 +227,6 @@ Do not:
 
 ## 12. Current repository phase
 
-The repository contains planning documentation, pinned workspace manifests/lockfile, application/package scaffolds, shared primitives, a runnable web/API health slice, real-PostgreSQL migration tests, generated REST contract tooling, Docker/Compose and local runtime/browser checks. The ignored root `.env` and `.pi` are local state, never build inputs. Domain schemas/content, Terraform and GitHub delivery automation remain unimplemented. SonarCloud configuration and the zero-task root lint graph remain Task 14/#23 limitations; the separate moderate esbuild advisory through Drizzle Kit is not fixed by local Compose. See `docs/testing.md` for actual check coverage rather than inferring release readiness from a successful command.
+The repository contains the platform health slice, migrations, generated REST contract tooling, Docker/Compose, platform component/browser tests and PR quality automation. The ignored root `.env` and `.pi` are local state, never inputs. Domain schemas/content, Terraform and deployment remain unimplemented. Task 14 adds real typed lint and security gates; dependency overrides remove the disclosed Drizzle Kit/esbuild advisory and currently identified transitive advisories without suppressing scans. Live GitHub/Sonar/required-check evidence must still be established externally. See `docs/testing.md` for exact commands, evidence and limitations; passing local checks do not establish release readiness.
 
 The technical and implementation baselines are conditional. Reversible repository/tooling work may proceed only through an approved issue; feature work must obey its Phase 0 dependencies. The project is **not ready for feature implementation commitment or pilot release**. Local platform code/test evidence does not establish legal/privacy approval, educational-content approval, target-age usability, cost, AWS deployment or independent release-audit evidence.

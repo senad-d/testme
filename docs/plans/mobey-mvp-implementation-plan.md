@@ -23,15 +23,15 @@ These rules repair the cross-cutting wiring that the short primary lists would o
 
 ## Phase order and evidence gates
 
-| Phase | Tasks | Incremental outcome | Required gate evidence |
-|---|---:|---|---|
-| 0 — Approve unresolved inputs | 1–4 | Product, content, security/economy, privacy/cloud, and session-boundary decisions are explicit instead of embedded in code | Approved decision records identify owner/date/status for `OQ-01`–`OQ-15`; deferred blockers prevent dependent tasks from starting |
-| 1 — Establish a reproducible platform | 5–15 | Pinned monorepo, runnable health slice, PostgreSQL migration path, local Compose, REST contract, CI and GitHub workflow | Clean clone runs frozen install/build/test; one Compose command reaches web/API/DB health; CI and Sonar pass; Terraform remains untouched |
-| 2 — Secure a family and child | 16–23 | Allowlisted registration, parent sessions, Authorized Browsers, profiles, PIN child access, role boundary | Real-PostgreSQL API evidence for two-family isolation/revocation/lock policy plus browser evidence for registration → profile → child entry |
-| 3 — Deliver the learning/earning loop | 24–33 | Approved content, Placement, daily/session lifecycle, 3/2/1/0 scoring, retry-safe Game Money, progression, summaries | Content approval; unit/property/integration evidence; browser run for Placement and a 10-challenge session including disconnect/retry/TTS fallback |
-| 4 — Deliver the family reward loop | 34–42 | Shared catalog, Saving Goal, reserve/resolve requests, adjustments/history, concurrency safety | Browser evidence for earn → save/request → parent resolve and real-PostgreSQL race tests with a balanced ledger |
-| 5 — Complete privacy and pilot experience | 43–46 | Consent-gated analytics if approved, profile/family deletion, responsive/access checks, complete critical journeys | Privacy approval, deletion proof, no-event-without-consent proof, approved browser matrix results, all `REQ-*` traced |
-| 6 — Deploy the private pilot | 47–51 | Isolated Terraform environments, selected AWS baseline, automated nonprod/manual prod, operations and release verdict | Reviewed plans/cost estimate, nonprod deployment/smoke, restore/deletion/allowlist runbooks, manual production approval, signed readiness report |
+| Phase                                     | Tasks | Incremental outcome                                                                                                        | Required gate evidence                                                                                                                             |
+| ----------------------------------------- | ----: | -------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------- |
+| 0 — Approve unresolved inputs             |   1–4 | Product, content, security/economy, privacy/cloud, and session-boundary decisions are explicit instead of embedded in code | Approved decision records identify owner/date/status for `OQ-01`–`OQ-15`; deferred blockers prevent dependent tasks from starting                  |
+| 1 — Establish a reproducible platform     |  5–15 | Pinned monorepo, runnable health slice, PostgreSQL migration path, local Compose, REST contract, CI and GitHub workflow    | Clean clone runs frozen install/build/test; one Compose command reaches web/API/DB health; CI and Sonar pass; Terraform remains untouched          |
+| 2 — Secure a family and child             | 16–23 | Allowlisted registration, parent sessions, Authorized Browsers, profiles, PIN child access, role boundary                  | Real-PostgreSQL API evidence for two-family isolation/revocation/lock policy plus browser evidence for registration → profile → child entry        |
+| 3 — Deliver the learning/earning loop     | 24–33 | Approved content, Placement, daily/session lifecycle, 3/2/1/0 scoring, retry-safe Game Money, progression, summaries       | Content approval; unit/property/integration evidence; browser run for Placement and a 10-challenge session including disconnect/retry/TTS fallback |
+| 4 — Deliver the family reward loop        | 34–42 | Shared catalog, Saving Goal, reserve/resolve requests, adjustments/history, concurrency safety                             | Browser evidence for earn → save/request → parent resolve and real-PostgreSQL race tests with a balanced ledger                                    |
+| 5 — Complete privacy and pilot experience | 43–46 | Consent-gated analytics if approved, profile/family deletion, responsive/access checks, complete critical journeys         | Privacy approval, deletion proof, no-event-without-consent proof, approved browser matrix results, all `REQ-*` traced                              |
+| 6 — Deploy the private pilot              | 47–51 | Isolated Terraform environments, selected AWS baseline, automated nonprod/manual prod, operations and release verdict      | Reviewed plans/cost estimate, nonprod deployment/smoke, restore/deletion/allowlist runbooks, manual production approval, signed readiness report   |
 
 Task numbers are stable trace identifiers; the `Depends on` graph is the executable order within each phase. In particular, Task 12 intentionally precedes Task 11 so the migration service has a runner. Tasks may run in parallel only when their dependency closure and applicable phase gates permit it. Phase evidence is attached to the final pull request or release report; command output must identify the commit SHA and environment rather than being copied from an unrelated run.
 
@@ -46,18 +46,18 @@ Task numbers are stable trace identifiers; the `Depends on` graph is the executa
 
 ## Traceability overview
 
-| Requirement group | Primary tasks |
-|---|---|
-| REQ-PROD | 1, 17, 24–33, 50–51 |
-| REQ-AUTH | 3, 16–23, 42, 46 |
-| REQ-CHILD | 16, 20–23, 44, 46 |
-| REQ-LEARN / REQ-GAME | 2–3, 24–33, 42, 46 |
-| REQ-UX / REQ-CUR | 1–2, 21, 24, 27, 31, 45–46 |
-| REQ-SHOP / REQ-REQ / REQ-BAL | 3, 28, 34–42, 46 |
-| REQ-PARENT | 21, 33, 35–41, 44, 46 |
-| REQ-PRIV | 1, 4, 43–46, 50–51 |
-| Delivery `[A]`, `U-19`–`U-21`, repository guidance `U-23` | 5–15, 47–51 (Task 15 owns `U-23`) |
-| OQ-01–OQ-15 | 1–4; dependent tasks name the relevant gate |
+| Requirement group                                         | Primary tasks                               |
+| --------------------------------------------------------- | ------------------------------------------- |
+| REQ-PROD                                                  | 1, 17, 24–33, 50–51                         |
+| REQ-AUTH                                                  | 3, 16–23, 42, 46                            |
+| REQ-CHILD                                                 | 16, 20–23, 44, 46                           |
+| REQ-LEARN / REQ-GAME                                      | 2–3, 24–33, 42, 46                          |
+| REQ-UX / REQ-CUR                                          | 1–2, 21, 24, 27, 31, 45–46                  |
+| REQ-SHOP / REQ-REQ / REQ-BAL                              | 3, 28, 34–42, 46                            |
+| REQ-PARENT                                                | 21, 33, 35–41, 44, 46                       |
+| REQ-PRIV                                                  | 1, 4, 43–46, 50–51                          |
+| Delivery `[A]`, `U-19`–`U-21`, repository guidance `U-23` | 5–15, 47–51 (Task 15 owns `U-23`)           |
+| OQ-01–OQ-15                                               | 1–4; dependent tasks name the relevant gate |
 
 ## MVP versus later work
 
@@ -473,6 +473,17 @@ Depends on: Tasks 11, 13. Kind: code. Run frozen install, format/lint/type-check
 `.gitignore`
 
 `tests/e2e/platform-smoke.spec.ts`
+
+User-authorized companion scope (2026-10-06, objective 277): include pinned lint,
+coverage and security dependencies, their lockfile and configuration, workspace
+quality scripts, platform component tests, production-image liveness probes,
+focused lint fixes and command documentation. The exhaustive implementation
+manifest is recorded in the Task 14 section of `docs/testing.md`; synchronize the
+live issue and PR with it before delivery. Existing foundational ignore hygiene
+from #71 is preserved, not reimplemented. Formatting-only normalization of the
+four authoritative planning documents establishes the repository-wide format
+baseline without changing product decisions. No domain behavior, cloud resource,
+deployment or repository-settings change is authorized here.
 
 #### Acceptance criteria
 

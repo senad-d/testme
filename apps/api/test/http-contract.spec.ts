@@ -137,16 +137,19 @@ let http: FastifyInstance;
 let platformHttp: FastifyInstance;
 let validateProblem: ReturnType<Ajv['compile']>;
 let validateMoney: ReturnType<Ajv['compile']>;
+const closeApplications: (() => Promise<void>)[] = [];
 
 beforeAll(async () => {
   const module = await Test.createTestingModule({ controllers: [ContractController] }).compile();
   application = module.createNestApplication<NestFastifyApplication>(new FastifyAdapter(), {
     logger: false,
   });
+  closeApplications.push(() => application.close());
   configureHttp(application);
   await application.init();
   http = application.getHttpAdapter().getInstance();
   platform = await createApplication();
+  closeApplications.push(() => platform.close());
   await platform.init();
   platformHttp = platform.getHttpAdapter().getInstance();
   const document = createOpenApiDocument(application);
@@ -158,8 +161,7 @@ beforeAll(async () => {
 });
 
 afterAll(async () => {
-  await application?.close();
-  await platform?.close();
+  await Promise.all(closeApplications.map((close) => close()));
 });
 
 function assertProblem(
@@ -205,7 +207,7 @@ describe('HTTP contract', () => {
     [500, 'INTERNAL_ERROR'],
     [418, 'INTERNAL_ERROR'],
   ] as const)('redacts framework exception status %s', async (status, code) => {
-    assertProblem(await http.inject(`/api/v1/contract/http/${status}`), code);
+    assertProblem(await http.inject(`/api/v1/contract/http/${status.toString()}`), code);
   });
 
   test('redacts unexpected errors instead of trusting arbitrary status/code fields', async () => {
@@ -432,7 +434,7 @@ describe('generated contract', () => {
 
   test('generated types reject numeric money and mismatched problem statuses', () => {
     const configPath = join(process.cwd(), 'tsconfig.json');
-    const config = ts.readConfigFile(configPath, ts.sys.readFile);
+    const config = ts.readConfigFile(configPath, (path) => ts.sys.readFile(path));
     const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd());
     const fixturePath = join(dirname(CONTRACT_PATH), '__contract_fixture.ts');
     const fixture = `
@@ -461,7 +463,7 @@ describe('generated contract', () => {
   test('exports generated contracts and exact money conversion types through the shared package entrypoint for web consumers', () => {
     const webDirectory = resolve(process.cwd(), '../web');
     const configPath = join(webDirectory, 'tsconfig.json');
-    const config = ts.readConfigFile(configPath, ts.sys.readFile);
+    const config = ts.readConfigFile(configPath, (path) => ts.sys.readFile(path));
     expect(config.error).toBeUndefined();
     const parsed = ts.parseJsonConfigFileContent(
       config.config,
@@ -658,7 +660,7 @@ describe('generated contract', () => {
     for (const code of Object.keys(PROBLEM_STATUSES))
       expect(document.components?.schemas).toHaveProperty(code);
     for (const path of Object.values(document.paths)) {
-      expect(path.get?.responses['default']).toHaveProperty('content.application/problem+json');
+      expect(path.get?.responses.default).toHaveProperty('content.application/problem+json');
       expect(path.get?.responses['200']).toHaveProperty('headers.X-Request-Id');
     }
     expect(document.paths['/api/v1/health/ready']?.get?.responses['503']).toHaveProperty(
