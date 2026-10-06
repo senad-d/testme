@@ -129,7 +129,7 @@ OQ-04 lockout durations and OQ-11 balance ceilings remain explicit decision gate
 
 | Check                                  | Command                                                                                                                                                                                                                                                                                                                                            | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                          | Scope                                                         |
 | -------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------- |
-| Version route regression               | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/health-version.spec.ts`                                                                                                                                                                                                                                           | Runs `apps/api/test/health-version.spec.ts` against the real Fastify/Nest application, proving the exact shared application identity response, HTTP 200 status, and `Cache-Control: no-store`.                                                                                                                                                                                                                                          | Focused API route suite; no database required                 |
+| Version route regression               | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/health-version.spec.ts`                                                                                                                                                                                                                                           | Runs `apps/api/test/health-version.spec.ts` against compiled Fastify/Nest output, proving the shared identity at `/api/v1/version`, the API package version and repeated reads at `/api/v1/health/version`, no-store JSON, and unchanged liveness/unavailable readiness without a database.                                                                                                                                             | Focused API route suite; no database required                 |
 | HTTP and generated contract regression | `pnpm --filter @mobey/shared build && pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/http-contract.spec.ts`                                                                                                                                                                                                       | Runs `apps/api/test/http-contract.spec.ts`: real Fastify/Nest validation, the exact shared application identity response, every stable error code against its schema, redaction, parser/size errors, request IDs, exact decimal strings, required generated type/package-root consumer constraints, compiled shared money exports and production identity/runtime wiring, deterministic generation, and missing/stale output rejection. | Focused API contract suite; no database required              |
 | Regenerate reviewed contract           | `pnpm --filter @mobey/api contract:generate`                                                                                                                                                                                                                                                                                                       | Builds the API and replaces only the generator-owned `packages/shared/src/generated/api.ts` from current Nest OpenAPI metadata.                                                                                                                                                                                                                                                                                                         | Generation command; review the diff, not a correctness gate   |
 | Generated contract drift               | `pnpm --filter @mobey/api contract`                                                                                                                                                                                                                                                                                                                | Builds the API, generates into an isolated temporary directory, and fails if the reviewed artifact is absent or byte-different; never overwrites reviewed output.                                                                                                                                                                                                                                                                       | Database-independent contract gate for Task 14 CI integration |
@@ -188,8 +188,10 @@ file is loaded. CI environment allowlisting remains Task 14/#23 work.
   including readiness's `503 {"status":"unavailable"}` operational report. OpenAPI
   documents this separately from controller exceptions, which use
   `application/problem+json`. `GET /api/v1/version` returns the shared package's application
-  name, version, and description and disables caching; it adds no authentication or other build metadata. No
-  documentation/UI or test-fixture route is served.
+  name, version, and description and disables caching; it adds no authentication or other build metadata.
+  The separate `GET /api/v1/health/version` retains the API package version used by
+  local Compose reload checks; both version routes have generated OpenAPI contracts.
+  No documentation/UI or test-fixture route is served.
 - Generation bootstraps the real application without listening or querying the
   database, and never loads `.env`. Nest Swagger is the schema authority;
   `@hey-api/openapi-ts` runs through its supported CLI with only the TypeScript
@@ -239,6 +241,280 @@ before the root type-only re-export was added. The suite passed all 90 cases at
 that point, including positive package imports and independent negative assignments.
 Issue #69 adds the public version response regression and extends the existing
 OpenAPI route check, bringing the focused suite to 91 cases.
+
+## Task 11 local Compose checks
+
+| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Scope                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: each synthetic local setting and insecure cookie mode is rejected outside development, malformed URL encoding produces a generic error, generic CLI failure, explicit container host and safe loopback default. Not authentication implementation.                                                                                                                                                                                                                                                                                                                                      | Focused runtime suite                                                        |
+| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, visible unavailable/ready browser states across database failure/recovery, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
+| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Configuration smoke                                                          |
+| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Workspace checks                                                             |
+| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Known-limited workspace command                                              |
+| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Workspace tests; requires Docker and Chromium                                |
+
+Install dependencies with `pnpm install --frozen-lockfile` using the versions above.
+Install the existing browser dependency before Compose tests. To keep browser
+binaries inside ignored checkout output, use the same absolute path for both commands:
+
+```sh
+PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" pnpm --filter @mobey/e2e exec playwright install chromium
+PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" pnpm test:compose
+```
+
+For a non-default Docker socket (for example Colima), set
+`DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"`
+and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` in the test shell.
+The normal strict Turbo graph does not forward arbitrary local Docker/browser
+variables; `--env-mode=loose` above is an explicit local test invocation, not a CI
+policy change. No host environment file is sourced. Optional
+`PLAYWRIGHT_BROWSERS_PATH` can locate an existing browser installation.
+
+The Compose test copies only required source inputs into a unique ignored
+`node_modules/.compose-test-*` directory, with no host dependency tree or credential/
+agent-state material. It creates its own synthetic `.env`/`.pi` exclusion canaries,
+random loopback ports, UUID-namespaced containers, images and database volume,
+then removes only those resources. Nested cloud/SSH credentials, certificate files
+and build/coverage output are excluded from both the source copy and image context;
+the suite creates synthetic canaries to check these exclusions. Persistence checks
+retain the original ledger `applied_at`, not just a reproducible checksum/count.
+Builds install frozen dependencies in images; dependency layers may reuse Docker's
+content-addressed cache. Startup guards first reproduced failures
+against the unmodified API; the image test also detected the initial production
+packaging failure caused by pnpm's root `deploy` script shadowing its built-in
+command (the image now uses `pnpm pm ... deploy` with frozen-lockfile configuration).
+Restoring Vite's old loopback-only proxy also reproduced a 502 instead of the
+required 200 in the clean Compose readiness check; the container proxy setting was
+then restored and the suite rerun.
+
+The explicit deterministic family/content seed is **not implemented or verified**:
+Task 16/#25 owns the family/schema portion and Task 24/#33 owns approved content,
+as traced by Task 11/#20 and the plan/specification. No schema/content/OQ behavior
+is inferred from passing local platform tests. No Task 14 CI/Sonar correction,
+full security gate or AWS/release evidence is claimed here.
+
+### PR #101 scope reconciliation — 2026-10-06
+
+Task 11 retains its 15 originally declared paths plus four API companions:
+`apps/api/src/app.module.ts`, `apps/api/test/health-version.spec.ts`,
+`apps/api/test/http-contract.spec.ts`, and generator-owned
+`packages/shared/src/generated/api.ts`. The API-package version probe supports local
+reload diagnostics; its compiled route regression and schema/drift checks preserve
+both that probe and main's separate shared application identity endpoint.
+
+The unrelated `.github/workflows/ci.yml` belongs to Task 14/#23, not Task 11.
+The web footer, shared-version fallback, styling and rendering test are separate
+presentation work; Compose uses main's existing heading/build/readiness markup.
+Those four paths are removed from this PR's scope with their contents preserved
+for separate delivery, not discarded. No CI, footer, style or web-unit coverage is
+claimed by this PR. The retained browser suite still asserts build/readiness, HMR,
+API restart, migration persistence/failure ordering and image safety without those
+presentation changes. The authoritative Task 11 path list is in the implementation
+plan; the live issue and exhaustive published PR manifest must match it before ready.
+
+After removing the unrelated paths, Node 24.20.0 / pnpm 11.25.0 verification passed:
+workspace build (four tasks, two cached), type-check (six tasks, three cached),
+direct API contract drift check, Compose model validation, 124 API tests in four
+files (including real PostgreSQL), and all seven Compose/browser/image tests.
+The latter ran against a unique synthetic source copy, random loopback ports and
+UUID-namespaced resources on the confirmed local Colima daemon; test-owned resources
+were cleaned by the suite. Commands after selecting the pinned toolchain on `PATH`:
+
+```sh
+pnpm build
+pnpm type-check
+pnpm --filter @mobey/api contract
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock docker compose --env-file /dev/null config --quiet
+(cd apps/api && DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock /Users/senad/Documents/Code/Moj_git/testing-orcme/node_modules/.ci-tools/node24/bin/node node_modules/vitest/vitest.mjs run --reporter=dot)
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js test tests/e2e/local-compose.spec.ts --workers=1 --reporter=line
+```
+
+The API test command uses the absolute in-checkout Node path because the harness
+rejected the equivalent relative path during script inspection. No test, policy or
+assertion was changed to pass. Changed source/registry formatting also passes;
+the plan retains its surrounding style and the previously disclosed base-wide
+formatting limitation.
+
+Independent test verification (2026-10-06) extended the existing database
+persistence test in `tests/e2e/local-compose.spec.ts` to assert the restored page's
+visible `API readiness: unavailable` after a real migration-ledger mismatch and
+`API readiness: ready` after stack recovery. A temporary browser-route fault
+injection falsely returning healthy JSON failed the new unavailable assertion
+(expected unavailable, received ready); the injection was removed before all
+seven Compose tests passed. The API suite separately passed 124 tests in four
+files, including real PostgreSQL. Type-check passed six tasks (five cached),
+build passed four tasks (four cached), and direct contract/model checks passed.
+The pinned Node 24.20.0 and pnpm 11.25.0 toolchain was used throughout.
+
+An isolated local Compose browser inspection also confirmed the base-restored
+heading/build/readiness markup, visible unavailable state on the disposable DB
+mismatch, and ready state after recovery. `agent-browser` snapshot, console,
+axe and read-back screenshots were checked: ready-state console had no errors;
+axe reported zero violations/incomplete checks in both states (24 passes each).
+This is a platform smoke check, not accessibility conformance. The browser and
+all test-owned Compose services, volumes and images were stopped/removed.
+
+Reconciliation verification is working-tree evidence only. Subsequent delivery
+must attach test results and final independent review to the published revision.
+
+### Task 11 implementation refresh — 2026-10-05
+
+The existing Compose implementation was reused against issue #20's then-declared
+15-path manifest. PR #101's later exhaustive scope reconciliation is recorded above;
+this historical refresh was not proof that all earlier commits matched that manifest.
+Context exclusions and synthetic canaries now cover nested credential directories,
+certificate files and generated output. The persistence assertion also checks the
+original migration timestamp, so rebuilding an empty database cannot masquerade
+as retained storage. Compose model assertions no longer dump the inherited process
+environment on failure.
+
+Using the cached Node 24.20.0 binary with the pnpm 11.25.0 CLI directly, frozen
+installation passes. Direct pinned-Node TypeScript builds for API/shared/content,
+type-checks for web/E2E, and the Vite production build pass. Runtime and health-version
+regressions pass (12 tests); Playwright lists all four Compose cases. The root
+`pnpm` launcher selects Node 26.10.0 and is correctly rejected by engine enforcement;
+no policy was weakened. Focused commands used after installation, from the root:
+
+```sh
+node_modules/.ci-tools/node24/bin/node apps/api/node_modules/typescript/bin/tsc --project apps/api/tsconfig.json
+node_modules/.ci-tools/node24/bin/node apps/api/node_modules/vitest/vitest.mjs run --root apps/api test/local-runtime.spec.ts test/health-version.spec.ts
+node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/typescript/bin/tsc --project tests/e2e/tsconfig.json --noEmit
+node_modules/.ci-tools/node24/bin/node apps/web/node_modules/vite/bin/vite.js build apps/web
+node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js test tests/e2e/local-compose.spec.ts --list
+docker compose --env-file /dev/null config --quiet
+```
+
+Compose 5.6.0 model validation passes. Neither configured local Docker socket
+(default or Docker Desktop) is reachable, so the changed Compose/browser/image
+suite has **not** been executed in this refresh. The prior results below do not
+verify these changes. After Git-worker integration with current main, rerun
+`pnpm test:compose` on a confirmed local Docker daemon and attach evidence to the
+publication revision. Integration, independent review and PR publication evidence
+remain outstanding; no clean-checkout runtime pass is claimed for that initial refresh.
+
+### Docker-backed continuation — 2026-10-05
+
+The user started local Colima. Docker context inspection and daemon information
+confirmed `unix:///Users/senad/.colima/default/docker.sock`, Docker Engine 29.2.1
+and Compose 5.6.0. The first clean-source attempt timed out during startup; a direct
+pinned-image pull also timed out. Added bounded synthetic-stack startup diagnostics.
+The retry reached readiness and passed database/image cases, but browser cases
+failed because the matching Chromium binary was missing. Installing that pinned
+browser under ignored `node_modules/.playwright-browsers` resolved the limitation.
+The subsequent full Compose suite passed **all four tests** with Node 24.20.0:
+
+```sh
+PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js install chromium
+PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js test tests/e2e/local-compose.spec.ts --workers=1
+```
+
+This proves clean-source-copy startup without host dependencies/environment files,
+browser readiness, web/API reload without image rebuilds, original ledger timestamp
+persistence, failed-migration ordering, context canary exclusions and runnable
+non-root production stages. Only the test's UUID-namespaced resources are removed;
+other running local projects are preserved.
+
+The API's full suite also passes **28 tests in three files**, including real
+PostgreSQL migration regressions. Its initial root-directory invocation failed
+fixture type resolution; rerunning from the package directory, as the registered
+pnpm command does, passed without changing any tests or compiler configuration:
+
+```sh
+cd apps/api
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock ../../node_modules/.ci-tools/node24/bin/node node_modules/vitest/vitest.mjs run
+```
+
+These are preserved-working-tree results, **not evidence for a current-main-integrated
+commit**. Integration remains unresolved because this worker cannot perform Git
+operations. A Git-capable worker must integrate current main and rerun affected
+checks before independent review and PR publication. Seed/CI/security exclusions
+remain unchanged; no merge or release readiness is claimed.
+
+### Current-main conflict-resolution verification — 2026-10-05
+
+The five conflicted files preserve both the Compose/runtime work and main's REST
+contract work. `GET /api/v1/health/version` still returns the API package version;
+`GET /api/v1/version` still returns the shared application identity. Both disable
+caching. Production HTTP validation, redacted problem details and correlation
+headers remain enabled alongside the development-configuration rejection guard.
+
+Required companion paths beyond the five conflicts are
+`apps/api/test/http-contract.spec.ts` (the exact shipped-route inventory and health
+version schema) and generator-owned `packages/shared/src/generated/api.ts`.
+Preserving the existing health-version route initially produced three expected
+contract failures: route inventory, stale generated output, and compiled drift
+check. Updating the inventory/schema assertion and regenerating the artifact
+resolved them; no generated output was hand-edited. Include both companion paths
+in the issue/PR manifest before publication.
+
+Verification used Node 24.20.0, pnpm 11.25.0, the confirmed local Colima socket
+`unix:///Users/senad/.colima/default/docker.sock`, Docker Engine 29.2.1,
+Compose 5.6.0 and the installed Playwright Chromium. Frozen installation, API
+contract generation/check, workspace build (four tasks), workspace type-check
+(six tasks including shared build), and Compose model validation passed.
+The API suite passed **124 tests in four files**, including real-PostgreSQL
+migration and HTTP-contract checks. The clean-source-copy Compose suite passed
+**all six tests**, including the newly committed shared-build and active-Watch
+exclusion regressions, HMR/restart, retained migration timestamp, failed-migration
+ordering, context exclusions and non-root runnable production images.
+Only UUID-namespaced test resources were changed and removed.
+
+A separate strict compiler check initially reported missing declaration files for
+the health test's compiled imports. The test now uses matching source-module types
+for dynamically loaded compiled modules; it still exercises emitted Nest metadata.
+The compiler check and all 124 API tests then passed without suppressions or changed
+compiler policy. After selecting the pinned Node/pnpm binaries on `PATH`, commands
+were:
+
+```sh
+pnpm install --frozen-lockfile
+pnpm --filter @mobey/api contract:generate
+pnpm --filter @mobey/api contract
+pnpm build
+pnpm type-check
+pnpm --filter @mobey/api exec tsc --ignoreConfig --noEmit --strict --target ES2023 --module NodeNext --moduleResolution NodeNext --experimentalDecorators --emitDecoratorMetadata --exactOptionalPropertyTypes --noUncheckedIndexedAccess --noImplicitOverride --noUnusedLocals --noUnusedParameters --noPropertyAccessFromIndexSignature --verbatimModuleSyntax test/health-version.spec.ts test/local-runtime.spec.ts test/http-contract.spec.ts
+(cd apps/api && DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock ../../node_modules/.ci-tools/node24/bin/node node_modules/vitest/vitest.mjs run)
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js test tests/e2e/local-compose.spec.ts --workers=1
+docker compose --env-file /dev/null config --quiet
+```
+
+These are conflict-resolved **working-tree** results, not a concluded merge,
+clean-clone/publication-revision evidence, or independent-review approval. A Git
+worker must conclude the merge; subsequent verification/review/publication must
+attach evidence to that resulting revision. No merge of the PR is authorized.
+Deferred seed, Task 14 CI/Sonar/lint and the previously disclosed Drizzle Kit
+security limitation remain unchanged; no new security/release gate is claimed.
+
+### Previous Task 11 implementation verification — 2026-09-05
+
+Environment: macOS arm64, Node 24.20.0, pnpm 11.25.0, Colima Docker Engine 29.2.1,
+Compose 5.1.4 and Playwright Chromium. Colima was initially stopped; `colima start`
+restored the daemon without changing repository credentials or separate worktrees.
+
+- Frozen/ordinary/frozen installs preserve the lockfile and lifecycle policy;
+  workspace build/type-check and the existing Drizzle configuration check pass.
+- Runtime suite: 9 passing tests. API suites together: 25 passing tests, including
+  16 existing migration/tooling cases against real PostgreSQL. Shared suite: 3
+  passing tests. Compose/browser/image suite: 4 passing tests. Uncached workspace
+  run: 6 successful tasks; existing web/content unit suites still contain no tests.
+- A workspace test attempt without the documented Colima socket variables failed
+  Docker discovery and interrupted its concurrent browser run. The configured
+  uncached workspace rerun passed; the initial attempt is not counted as a pass.
+- Source/local-command documentation formatting passes. The authoritative plan
+  and technical specification already fail whole-file Prettier on the unchanged
+  base revision; they retain surrounding style rather than receiving unrelated
+  whole-document reformatting here. This is not a passing repository-wide format gate.
+- Root lint remains a zero-task no-op. Focused strict ESLint using the existing
+  configuration and cached tooling checks the changed API source and Compose
+  Playwright test; API test/Vite config project-service lint is not wired by the
+  existing tsconfigs. No compiler, lint rule or gate was weakened.
+- `pnpm audit` still reports one moderate advisory, GHSA-67mh-4wv8-2f99 via
+  Drizzle Kit's transitive esbuild (no high/critical advisories). It is not fixed,
+  hidden or treated as a passing full security gate.
+
+Evidence is for the Task 11 implementation working tree, not a published commit,
+independent review, merged policy change or release. Review/publication must attach
+results to the exact eventual commit and keep the deferred seed explicit.
 
 ## Task 12 declaration patch
 

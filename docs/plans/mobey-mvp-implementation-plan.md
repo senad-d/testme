@@ -339,11 +339,17 @@ One full-stack Docker Compose command is a validated delivery constraint. [`A`, 
 
 #### How
 
-Depends on: Tasks 10, 12. Kind: code. Use development image targets/bind mounts without masking workspace dependencies; use only inline/generated synthetic local database, allowlist, CSRF, PIN-pepper, blind-index, and token configuration; select the explicit localhost cookie policy; make API readiness depend on migration success and DB health. Do not read the ignored host `.env` implicitly.
+Depends on: Tasks 10, 12. Kind: code. Use development image targets and Compose Watch source synchronization without masking workspace dependencies; use only inline/generated synthetic local database, allowlist, CSRF, PIN-pepper, blind-index, and token configuration; select the explicit localhost cookie policy; make API readiness depend on migration success and DB health. Do not read the ignored host `.env` implicitly. The platform startup rejection guard is not implementation of authentication or approval of OQ-04 policy.
+
+User-authorized scope/evidence alignment (2026-09-05, issue #20): include the necessary startup/networking code, context exclusion, focused tests and command documentation below. The family/content seed requirement remains required but its evidence is deferred to Tasks 16/#25 and 24/#33, after their schema/content approvals; no no-op seed or invented domain schema belongs to Task 11. This does not change OQ gates or include Task 14 CI/Sonar work.
+
+PR #101 scope reconciliation retains the API-package reload-version probe and its test/generated-contract companions. CI workflow wiring remains Task 14/#23; web footer/style changes are separate presentation work, not required for Compose readiness or reload evidence.
 
 #### Where
 
 `compose.yaml`
+
+`.dockerignore`
 
 `apps/api/Dockerfile`
 
@@ -351,14 +357,40 @@ Depends on: Tasks 10, 12. Kind: code. Use development image targets/bind mounts 
 
 `package.json`
 
+`apps/api/src/main.ts`
+
+`apps/api/src/runtime-config.ts`
+
+`apps/api/src/app.module.ts` — API-package version probe for local reload diagnostics; preserve the shared application identity route.
+
+`apps/api/test/health-version.spec.ts` — compiled version/liveness/readiness regression.
+
+`apps/api/test/http-contract.spec.ts` — shipped-route inventory and probe schema regression.
+
+`packages/shared/src/generated/api.ts` — generator-owned contract companion for the probe.
+
+`apps/web/vite.config.ts`
+
+`apps/api/test/local-runtime.spec.ts`
+
+`tests/e2e/local-compose.spec.ts`
+
 `README.md`
+
+`AGENTS.md`
+
+`docs/testing.md`
+
+`docs/plans/mobey-mvp-implementation-plan.md`
+
+`docs/technical/mobey-technical-spec.md`
 
 #### Acceptance criteria
 
 - The documented Compose up command starts all four services from a clean checkout and the web reaches API readiness.
 - Editing web/API source triggers reload without rebuilding the full image.
 - No host `.env`, participant data, root container, or production secret is copied into an image layer; startup rejects development secrets/insecure cookie mode outside development.
-- A documented explicit seed command creates only deterministic synthetic family/content data and never runs automatically in production.
+- Task 11 documents the seed's current absence and deferred owners without claiming seed acceptance. The retained requirement is a documented explicit command creating only deterministic synthetic family/content data, never automatically in production; family implementation/evidence follows Task 16/#25's approved schema and content implementation/evidence follows Task 24/#33's approved inventory.
 
 ### 12. Establish PostgreSQL access and migration discipline
 
@@ -504,6 +536,7 @@ Depends on: Tasks 3, 12. Kind: code. Include normalized-email uniqueness, one pa
 - Real-PostgreSQL tests reject duplicate email, second parent, sibling nickname/PIN equivalents, profile 11, cross-family foreign references, and two active child sessions.
 - No schema field requests child real name, email, age/birth date, or upload.
 - Raw passwords, PINs, and opaque tokens have no persistence column.
+- Own the family portion of the explicit deterministic synthetic development seed deferred from Task 11/#20; coordinate the command with Task 24/#33's approved content and align the implementation manifest before delivery. Produce real-PostgreSQL evidence and prove it cannot run automatically in production. This seed evidence is still outstanding and does not bypass Task 3 or other applicable decisions.
 
 ### 17. Deliver allowlisted registration and parent sessions
 
@@ -730,6 +763,7 @@ Depends on: Tasks 2, 8, 20. Kind: code. Extend the approved avatar manifest intr
 - Property tests prove whole integers 0–100, only 1/2/5/10/20/50/100 denominations, two Placement questions per skill, approved stage curve, stable no-repeat signatures, and at least 10 eligible unique signatures for every stage/session band or a specified fail-closed generation error.
 - Hint one/two and explanation/instruction text exist for every generated case and validate against the approved brief.
 - A content reviewer can map each content version to the approving pull request; answer material is not exported in a child render DTO before reveal.
+- Own the approved-content portion of the explicit deterministic synthetic development seed deferred from Task 11/#20; coordinate the command with Task 16/#25's family fixtures and align the implementation manifest before delivery. Prove deterministic reviewed data and no automatic production execution. This evidence remains outstanding and does not bypass content approvals.
 
 ### 25. Create learning, Placement, session, and summary schema
 

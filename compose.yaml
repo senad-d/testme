@@ -1,0 +1,125 @@
+name: mobey
+
+# Explicit synthetic local values, never host interpolation or env_file imports.
+x-api-environment: &api-environment
+  NODE_ENV: development
+  API_HOST: 0.0.0.0
+  DATABASE_URL: postgresql://mobey:mobey-development-only-database@db:5432/mobey
+  DATABASE_POOL_MAX: '3'
+  DATABASE_CONNECTION_TIMEOUT_MS: '5000'
+  DATABASE_IDLE_TIMEOUT_MS: '1000'
+  DATABASE_QUERY_TIMEOUT_MS: '5000'
+  DATABASE_STATEMENT_TIMEOUT_MS: '5000'
+  AUTH_ALLOWLIST: mobey-development-only-parent@example.invalid
+  CSRF_SECRET: mobey-development-only-csrf
+  PIN_PEPPER: mobey-development-only-pin-pepper
+  PIN_BLIND_INDEX_SECRET: mobey-development-only-blind-index
+  SESSION_TOKEN_SECRET: mobey-development-only-session-token
+  COOKIE_MODE: localhost-development
+
+services:
+  db:
+    # Match Task 12's tested local PostgreSQL; not an OQ-13 production sizing decision.
+    image: postgres:17.11-alpine3.24@sha256:18cfe3ef5e6815560c98237d6216d1e5119702fb0f3894c8785dd58b8bbe5d73
+    user: postgres
+    environment:
+      POSTGRES_DB: mobey
+      POSTGRES_USER: mobey
+      POSTGRES_PASSWORD: mobey-development-only-database
+    volumes:
+      - database:/var/lib/postgresql/data
+    healthcheck:
+      test: ['CMD-SHELL', 'pg_isready -U mobey -d mobey']
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  migrate:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: development
+    init: true
+    environment: *api-environment
+    command:
+      ['sh', '-c', 'pnpm --filter @mobey/api build && exec node apps/api/dist/database/migrate.js']
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: 'no'
+
+  api:
+    build:
+      context: .
+      dockerfile: apps/api/Dockerfile
+      target: development
+    init: true
+    environment: *api-environment
+    ports:
+      - '127.0.0.1:3000:3000'
+    depends_on:
+      db:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/api/v1/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+      start_period: 30s
+    develop:
+      watch:
+        - action: sync+restart
+          path: ./apps/api/src
+          target: /workspace/apps/api/src
+          initial_sync: true
+          ignore: ['**/.env*', '**/.pi/**', '**/*.pem', '**/*.key', '**/*.test.ts', '**/*.spec.ts']
+
+  web:
+    build:
+      context: .
+      dockerfile: apps/web/Dockerfile
+      target: development
+    init: true
+    environment:
+      NODE_ENV: development
+      API_PROXY_TARGET: http://api:3000
+    ports:
+      - '127.0.0.1:5173:5173'
+    depends_on:
+      api:
+        condition: service_healthy
+    healthcheck:
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:5173/api/v1/health/ready').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))",
+        ]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    develop:
+      watch:
+        - action: sync
+          path: ./apps/web/src
+          target: /workspace/apps/web/src
+          initial_sync: true
+          ignore: ['**/.env*', '**/.pi/**', '**/*.pem', '**/*.key', '**/*.test.*', '**/*.spec.*']
+        - action: sync+restart
+          path: ./apps/web/vite.config.ts
+          target: /workspace/apps/web/vite.config.ts
+        - action: sync
+          path: ./apps/web/index.html
+          target: /workspace/apps/web/index.html
+
+volumes:
+  database:

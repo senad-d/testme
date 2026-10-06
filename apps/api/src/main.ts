@@ -13,6 +13,7 @@ import {
   ProblemDetailsFilter,
   sendProblemDetails,
 } from './common/http/problem-details.filter.js';
+import { readRuntimeConfig } from './runtime-config.js';
 
 const API_PREFIX = 'api/v1';
 const API_PORT = 3000;
@@ -58,6 +59,7 @@ export function configureHttp(application: NestFastifyApplication): void {
 }
 
 export async function createApplication(): Promise<NestFastifyApplication> {
+  readRuntimeConfig();
   const application = await NestFactory.create<NestFastifyApplication>(
     AppModule,
     new FastifyAdapter({
@@ -80,7 +82,7 @@ export async function createApplication(): Promise<NestFastifyApplication> {
 
 async function bootstrap(): Promise<void> {
   const application = await createApplication();
-  await application.listen(API_PORT, '127.0.0.1');
+  await application.listen(API_PORT, readRuntimeConfig().host);
 }
 
 const entrypoint = process.argv[1];

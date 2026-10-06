@@ -1,3 +1,5 @@
+import { createRequire } from 'node:module';
+
 import {
   Controller,
   Get,
@@ -28,6 +30,17 @@ import { verifyDatabaseReadiness } from './database/migrate.js';
 type HealthResponse = Readonly<{
   status: 'ok' | 'unavailable';
 }>;
+
+type PackageMetadata = Readonly<{
+  version: string;
+}>;
+
+const require = createRequire(import.meta.url);
+const packageMetadata = require('../package.json') as PackageMetadata;
+
+export function getApiVersion(): string {
+  return packageMetadata.version;
+}
 
 type VersionResponse = Readonly<{
   version: string;
@@ -61,7 +74,7 @@ class DatabaseReadinessService implements OnApplicationShutdown {
 }
 
 @Controller('health')
-class HealthController {
+export class HealthController {
   constructor(
     @Inject(DatabaseReadinessService) private readonly databaseReadiness: DatabaseReadinessService,
   ) {}
@@ -80,6 +93,22 @@ class HealthController {
   @HttpCode(HttpStatus.OK)
   live(): HealthResponse {
     return { status: 'ok' };
+  }
+
+  @ApiOkResponse({
+    description: 'The running API package version for local reload checks.',
+    schema: {
+      type: 'object',
+      additionalProperties: false,
+      required: ['version'],
+      properties: { version: { type: 'string' } },
+    },
+  })
+  @Get('version')
+  @Header('Cache-Control', 'no-store')
+  @HttpCode(HttpStatus.OK)
+  version(): Readonly<{ version: string }> {
+    return { version: getApiVersion() };
   }
 
   @ApiOkResponse({

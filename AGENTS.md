@@ -1,7 +1,7 @@
 # Mobey Repository Guidance
 
 **Scope:** Repository-wide guidance for coding agents  
-**Current phase:** Platform foundation implemented; domain features and release gates remain conditional
+**Current phase:** Phase 1 platform baseline with a runnable health slice, migrations, generated REST contracts and local Compose; domain features and pilot release remain gated
 
 **Product release:** Family-loop MVP private pilot
 
@@ -11,7 +11,7 @@ Mobey is a child-friendly website game for children ages 7–9. Children answer 
 
 Before changing anything:
 
-1. Read the issue and the applicable authoritative documents in section 2.
+1. Read the issue. From the section 2 documents, read only the sections the issue cites (its `REQ-*`, `OQ-*`, plan task, and source-section references), located by identifier with a search tool; never read those documents whole. Branch, commit, pull-request, and issue-tracking steps need the issue alone.
 2. Confirm that every unresolved `OQ-*` needed by the work is approved; do not choose a value in code.
 3. Check the repository itself. Paths and commands described as intended below do not exist yet unless the current tree proves otherwise.
 4. Keep the issue, requirements, exact changed-file manifest, tests, documentation, and pull request evidence aligned.
@@ -57,8 +57,9 @@ The selected design is a TypeScript modular monolith:
 - version-controlled content with no CMS; and
 - Docker/Compose locally and Terraform-managed AWS deployment.
 
-The application/package roots below now exist. E2E contains tooling only;
-Terraform, GitHub workflows, and Compose remain intended future surfaces in this checkout:
+The application/package roots and local Compose stack below now exist. E2E includes
+local Compose smoke coverage, not domain journeys; Terraform and GitHub workflows
+remain intended future surfaces in this checkout:
 
 ```text
 apps/web/                         React/Vite UI
@@ -70,7 +71,7 @@ infra/terraform/bootstrap/        remote-state prerequisites
 infra/terraform/modules/          AWS modules
 infra/terraform/environments/     nonprod and prod roots
 .github/                          issue/PR templates, CODEOWNERS; future workflows
-compose.yaml                      future local stack
+compose.yaml                      local development stack
 ```
 
 API bounded contexts are Identity & Family, Learning, Economy, Rewards, Reporting, Privacy & Consent, and Operations. Domain behavior belongs to its API module. `packages/shared` must not contain database entities or business services. Content must be deterministic and reviewed; do not introduce network content generation, runtime AI generation, or mutable production authoring.
@@ -123,6 +124,8 @@ When routes are implemented, a public controller/DTO/error change must regenerat
 
 ## 6. Local development expectations
 
+The local health slice runs with `docker compose --env-file /dev/null up --build --watch` from the repository root (Docker Compose 2.32+). See [README.md](README.md) for verified commands, image checks, shutdown/reset instructions and limitations. Keep command evidence tied to the source revision under review.
+
 Use the pinned Node 24.20.0 and pnpm 11.25.0 toolchain. Install dependencies with
 `pnpm install --frozen-lockfile`; do not use the default Node 26 runtime as verification
 evidence. The workspace has build, type-check, test, and contract commands. Exact
@@ -141,7 +144,9 @@ TypeScript types. Never hand-edit generated output. See the registry's Task 13
 section for safe problem details, request IDs, decimal-string transport, and the
 preserved health-report contract.
 
-The future Compose stack must provide one documented command for `web`, `api`, `db`, and one-shot `migrate` services. It must support web/API source hot reload, wait for database health and successful migration, use a persistent local database volume, and use explicit synthetic development-only secrets and allowlist data. It must not implicitly read the ignored root `.env`, use real participant data, or select insecure local cookie/development-secret behavior outside development. Production image stages must use frozen dependencies and non-root containers where compatible.
+The Compose stack provides `web`, `api`, `db`, and one-shot `migrate`, web HMR/API source sync-and-restart, health/migration ordering and persistent local DB storage. Use only its explicit synthetic development configuration. Always supply `--env-file /dev/null`; never implicitly read the ignored root `.env`, synchronize `.pi`, use participant data, or select local development-secret/cookie modes outside development. Production stages use frozen dependencies and non-root runtime users. The rejection guard is not authentication implementation or OQ approval.
+
+No family/content seed exists yet: the requirement and evidence remain with Tasks 16/#25 and 24/#33 after their schema/content approvals, as recorded in Task 11/#20 and the authoritative plan/specification. Do not claim migrations or a no-op command satisfy seed acceptance. Tests and commands are registered in [docs/testing.md](docs/testing.md). Browser binaries can be installed under ignored `node_modules/.playwright-browsers`; use the same absolute `PLAYWRIGHT_BROWSERS_PATH` for installation and verification, as shown in the README.
 
 When runnable commands are added, update this file and the relevant README in the same pull request using commands verified against the changed repository.
 
@@ -216,14 +221,6 @@ Do not:
 
 ## 12. Current repository phase
 
-This checkout contains the pinned pnpm/Turbo workspace, web/API health slice,
-PostgreSQL access and checked platform migrations, shared primitives, API integration
-tests, and generated REST contract tooling. The ignored root `.env` is local state
-and must not be read implicitly. Compose work is independent; this change does not
-supply Docker/Compose, Terraform, GitHub workflows, or domain behavior. SonarCloud
-configuration remains stale and the root lint graph currently has no package lint
-tasks. See `docs/testing.md` for actual check coverage rather than inferring release
-readiness from a successful command.
+The repository contains planning documentation, pinned workspace manifests/lockfile, application/package scaffolds, shared primitives, a runnable web/API health slice, real-PostgreSQL migration tests, generated REST contract tooling, Docker/Compose and local runtime/browser checks. The ignored root `.env` and `.pi` are local state, never build inputs. Domain schemas/content, Terraform and GitHub delivery automation remain unimplemented. SonarCloud configuration and the zero-task root lint graph remain Task 14/#23 limitations; the separate moderate esbuild advisory through Drizzle Kit is not fixed by local Compose. See `docs/testing.md` for actual check coverage rather than inferring release readiness from a successful command.
 
-The technical and implementation baselines are conditional. Reversible repository/tooling work may proceed only through an approved issue; feature work must obey its Phase 0 dependencies. The project is **not ready for feature implementation commitment or pilot release**. Platform checks are not legal/privacy approval, educational-content or target-age
-usability evidence, cost/AWS deployment evidence, or an independent release audit.
+The technical and implementation baselines are conditional. Reversible repository/tooling work may proceed only through an approved issue; feature work must obey its Phase 0 dependencies. The project is **not ready for feature implementation commitment or pilot release**. Local platform code/test evidence does not establish legal/privacy approval, educational-content approval, target-age usability, cost, AWS deployment or independent release-audit evidence.
