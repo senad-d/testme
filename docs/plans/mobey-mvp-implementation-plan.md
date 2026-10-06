@@ -343,6 +343,8 @@ Depends on: Tasks 10, 12. Kind: code. Use development image targets and Compose 
 
 User-authorized scope/evidence alignment (2026-09-05, issue #20): include the necessary startup/networking code, context exclusion, focused tests and command documentation below. The family/content seed requirement remains required but its evidence is deferred to Tasks 16/#25 and 24/#33, after their schema/content approvals; no no-op seed or invented domain schema belongs to Task 11. This does not change OQ gates or include Task 14 CI/Sonar work.
 
+PR #101 scope reconciliation retains the API-package reload-version probe and its test/generated-contract companions. CI workflow wiring remains Task 14/#23; web footer/style changes are separate presentation work, not required for Compose readiness or reload evidence.
+
 #### Where
 
 `compose.yaml`
@@ -358,6 +360,14 @@ User-authorized scope/evidence alignment (2026-09-05, issue #20): include the ne
 `apps/api/src/main.ts`
 
 `apps/api/src/runtime-config.ts`
+
+`apps/api/src/app.module.ts` — API-package version probe for local reload diagnostics; preserve the shared application identity route.
+
+`apps/api/test/health-version.spec.ts` — compiled version/liveness/readiness regression.
+
+`apps/api/test/http-contract.spec.ts` — shipped-route inventory and probe schema regression.
+
+`packages/shared/src/generated/api.ts` — generator-owned contract companion for the probe.
 
 `apps/web/vite.config.ts`
 

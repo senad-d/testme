@@ -1,7 +1,5 @@
-import { getApplicationVersion } from '@mobey/shared';
 import { StrictMode, useEffect, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import './styles.css';
 
 declare global {
   interface ImportMetaEnv {
@@ -13,7 +11,7 @@ const configuredBuildVersion: unknown = import.meta.env.MOBEY_PUBLIC_BUILD_VERSI
 const buildVersion =
   typeof configuredBuildVersion === 'string' && configuredBuildVersion.length > 0
     ? configuredBuildVersion
-    : getApplicationVersion();
+    : '0.0.0';
 
 type Readiness = 'checking' | 'ready' | 'unavailable';
 
@@ -53,18 +51,13 @@ function App() {
   }, []);
 
   return (
-    <>
-      <main>
-        <h1>Mobey</h1>
-        <p role="status" aria-live="polite">
-          API readiness:{' '}
-          <span className={`readiness-badge readiness-badge--${readiness}`}>{readiness}</span>
-        </p>
-      </main>
-      <footer className="build-version" data-testid="build-version">
-        Build: {buildVersion}
-      </footer>
-    </>
+    <main>
+      <h1>Mobey</h1>
+      <p>Build: {buildVersion}</p>
+      <p role="status" aria-live="polite">
+        API readiness: {readiness}
+      </p>
+    </main>
   );
 }
 

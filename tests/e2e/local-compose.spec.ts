@@ -417,7 +417,9 @@ test('Watch excludes new credentials and generated artifacts while syncing sourc
   }
 });
 
-test('database survives recreation and failed migrations block API startup', async () => {
+test('database survives recreation, failed migrations block API startup, and browser readiness recovers', async ({
+  page,
+}) => {
   test.setTimeout(180_000);
   const checksum = sql('SELECT checksum FROM mobey_platform.migrations WHERE position = 1');
   const appliedAt = sql(
@@ -427,6 +429,8 @@ test('database survives recreation and failed migrations block API startup', asy
     // Only the disposable test database is altered; production migrations stay immutable.
     sql(`UPDATE mobey_platform.migrations SET checksum = repeat('0', 64) WHERE position = 1`);
     await expect.poll(async () => (await fetch(`${webUrl}/api/v1/health/ready`)).status).toBe(503);
+    await page.goto(webUrl);
+    await expect(page.getByRole('status')).toHaveText('API readiness: unavailable');
     compose(['stop', 'web', 'api']);
     compose(['rm', '-f', 'web', 'api', 'migrate']);
     expect(() => compose(['up', '-d', 'api'])).toThrow();
@@ -447,9 +451,10 @@ test('database survives recreation and failed migrations block API startup', asy
     appliedAt,
   );
   expect(sql('SELECT count(*) FROM mobey_platform.migrations')).toBe('1');
-  expect(
-    (await fetch(`http://${compose(['port', 'web', '5173'])}/api/v1/health/ready`)).status,
-  ).toBe(200);
+  const recoveredWebUrl = `http://${compose(['port', 'web', '5173'])}`;
+  expect((await fetch(`${recoveredWebUrl}/api/v1/health/ready`)).status).toBe(200);
+  await page.goto(recoveredWebUrl);
+  await expect(page.getByRole('status')).toHaveText('API readiness: ready');
 });
 
 test('build context excludes canaries and production stages are non-root and runnable', async () => {

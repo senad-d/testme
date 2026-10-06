@@ -242,22 +242,16 @@ that point, including positive package imports and independent negative assignme
 Issue #69 adds the public version response regression and extends the existing
 OpenAPI route check, bringing the focused suite to 91 cases.
 
-## Web build version footer
-
-| Check                | Command                                                              | What it proves                                                                                                                                                                                                   | Scope                                                                 |
-| -------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------- |
-| Web footer rendering | `pnpm --filter @mobey/shared build && pnpm --filter @mobey/web test` | `apps/web/src/main.test.tsx`: semantic footer with `data-testid="build-version"`, configured web build override, shared-version fallback for missing/empty configuration, and retained heading/readiness markup. | Focused React rendering; browser mounting/effects verified separately |
-
 ## Task 11 local Compose checks
 
-| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Scope                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
-| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: each synthetic local setting and insecure cookie mode is rejected outside development, malformed URL encoding produces a generic error, generic CLI failure, explicit container host and safe loopback default. Not authentication implementation.                                                                                                                                                                                                                                                           | Focused runtime suite                                                        |
-| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
-| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                               | Configuration smoke                                                          |
-| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                        | Workspace checks                                                             |
-| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                                                                                                                                                                                                                                 | Known-limited workspace command                                              |
-| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                         | Workspace tests; requires Docker and Chromium                                |
+| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Scope                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
+| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: each synthetic local setting and insecure cookie mode is rejected outside development, malformed URL encoding produces a generic error, generic CLI failure, explicit container host and safe loopback default. Not authentication implementation.                                                                                                                                                                                                                                                                                                                                      | Focused runtime suite                                                        |
+| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, visible unavailable/ready browser states across database failure/recovery, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
+| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Configuration smoke                                                          |
+| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Workspace checks                                                             |
+| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Invokes the existing root graph; currently runs **zero lint tasks**, not source lint evidence. Task 14/#23 owns the missing wiring.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                            | Known-limited workspace command                                              |
+| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Workspace tests; requires Docker and Chromium                                |
 
 Install dependencies with `pnpm install --frozen-lockfile` using the versions above.
 Install the existing browser dependency before Compose tests. To keep browser
@@ -299,9 +293,75 @@ as traced by Task 11/#20 and the plan/specification. No schema/content/OQ behavi
 is inferred from passing local platform tests. No Task 14 CI/Sonar correction,
 full security gate or AWS/release evidence is claimed here.
 
+### PR #101 scope reconciliation — 2026-10-06
+
+Task 11 retains its 15 originally declared paths plus four API companions:
+`apps/api/src/app.module.ts`, `apps/api/test/health-version.spec.ts`,
+`apps/api/test/http-contract.spec.ts`, and generator-owned
+`packages/shared/src/generated/api.ts`. The API-package version probe supports local
+reload diagnostics; its compiled route regression and schema/drift checks preserve
+both that probe and main's separate shared application identity endpoint.
+
+The unrelated `.github/workflows/ci.yml` belongs to Task 14/#23, not Task 11.
+The web footer, shared-version fallback, styling and rendering test are separate
+presentation work; Compose uses main's existing heading/build/readiness markup.
+Those four paths are removed from this PR's scope with their contents preserved
+for separate delivery, not discarded. No CI, footer, style or web-unit coverage is
+claimed by this PR. The retained browser suite still asserts build/readiness, HMR,
+API restart, migration persistence/failure ordering and image safety without those
+presentation changes. The authoritative Task 11 path list is in the implementation
+plan; the live issue and exhaustive published PR manifest must match it before ready.
+
+After removing the unrelated paths, Node 24.20.0 / pnpm 11.25.0 verification passed:
+workspace build (four tasks, two cached), type-check (six tasks, three cached),
+direct API contract drift check, Compose model validation, 124 API tests in four
+files (including real PostgreSQL), and all seven Compose/browser/image tests.
+The latter ran against a unique synthetic source copy, random loopback ports and
+UUID-namespaced resources on the confirmed local Colima daemon; test-owned resources
+were cleaned by the suite. Commands after selecting the pinned toolchain on `PATH`:
+
+```sh
+pnpm build
+pnpm type-check
+pnpm --filter @mobey/api contract
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock docker compose --env-file /dev/null config --quiet
+(cd apps/api && DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock /Users/senad/Documents/Code/Moj_git/testing-orcme/node_modules/.ci-tools/node24/bin/node node_modules/vitest/vitest.mjs run --reporter=dot)
+DOCKER_HOST=unix:///Users/senad/.colima/default/docker.sock PLAYWRIGHT_BROWSERS_PATH="$PWD/node_modules/.playwright-browsers" node_modules/.ci-tools/node24/bin/node tests/e2e/node_modules/@playwright/test/cli.js test tests/e2e/local-compose.spec.ts --workers=1 --reporter=line
+```
+
+The API test command uses the absolute in-checkout Node path because the harness
+rejected the equivalent relative path during script inspection. No test, policy or
+assertion was changed to pass. Changed source/registry formatting also passes;
+the plan retains its surrounding style and the previously disclosed base-wide
+formatting limitation.
+
+Independent test verification (2026-10-06) extended the existing database
+persistence test in `tests/e2e/local-compose.spec.ts` to assert the restored page's
+visible `API readiness: unavailable` after a real migration-ledger mismatch and
+`API readiness: ready` after stack recovery. A temporary browser-route fault
+injection falsely returning healthy JSON failed the new unavailable assertion
+(expected unavailable, received ready); the injection was removed before all
+seven Compose tests passed. The API suite separately passed 124 tests in four
+files, including real PostgreSQL. Type-check passed six tasks (five cached),
+build passed four tasks (four cached), and direct contract/model checks passed.
+The pinned Node 24.20.0 and pnpm 11.25.0 toolchain was used throughout.
+
+An isolated local Compose browser inspection also confirmed the base-restored
+heading/build/readiness markup, visible unavailable state on the disposable DB
+mismatch, and ready state after recovery. `agent-browser` snapshot, console,
+axe and read-back screenshots were checked: ready-state console had no errors;
+axe reported zero violations/incomplete checks in both states (24 passes each).
+This is a platform smoke check, not accessibility conformance. The browser and
+all test-owned Compose services, volumes and images were stopped/removed.
+
+Reconciliation verification is working-tree evidence only. Subsequent delivery
+must attach test results and final independent review to the published revision.
+
 ### Task 11 implementation refresh — 2026-10-05
 
-The existing Compose implementation was reused within issue #20's 15-path manifest.
+The existing Compose implementation was reused against issue #20's then-declared
+15-path manifest. PR #101's later exhaustive scope reconciliation is recorded above;
+this historical refresh was not proof that all earlier commits matched that manifest.
 Context exclusions and synthetic canaries now cover nested credential directories,
 certificate files and generated output. The persistence assertion also checks the
 original migration timestamp, so rebuilding an empty database cannot masquerade
