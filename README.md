@@ -156,3 +156,22 @@ A repository administrator must establish live workflow/Sonar evidence and requi
 protection, reviews or bypass actors. Terraform is absent and no cloud plan runs.
 The workflow fails if Terraform is introduced until its approved owner adds
 isolated format/validate/security/plan checks. There is no deployment job.
+
+## Safe feature publication (#62)
+
+An authorized Git agent must run the preflight, use an explicit feature ref, then
+verify the live remote commit before opening a PR (substitute the current branch):
+
+```sh
+pnpm publication:preflight origin HEAD:refs/heads/feat/62
+git -c push.followTags=false push -- origin HEAD:refs/heads/feat/62
+pnpm publication:verify origin HEAD:refs/heads/feat/62
+```
+
+The guard rejects `origin/main` or any differently named upstream, ambiguous
+refspecs, mismatched/fan-out fetch/push destinations and mirror remotes. It never
+pushes, repairs configuration or prints remote URLs. `pnpm test:publication`
+uses synthetic transcripts without Git/network access; the existing CI-policy gate
+also runs it. See [delivery safety](docs/delivery-safety.md) for failure recovery,
+exact evidence scope and the administrator-owned protected-main acceptance gate.
+Local guards do not establish live branch protection.
