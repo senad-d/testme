@@ -1,5 +1,39 @@
 # Test check registry
 
+## Incident-prevention publication guard (#62)
+
+`pnpm test:publication` runs the isolated synthetic regressions for
+`scripts/publication-preflight.mjs`, including explicit destination/upstream
+rejection, remote feature commit verification, fetch/push fan-out and mirror guards,
+local races, SHA-256 object IDs, failures at every inspection and output redaction.
+CLI tests spawn Node with a temporary synthetic executable named `git` on an
+exclusive PATH, covering success, stale/unreachable refs and missing executables;
+they clean up their temporary files. No real Git operations, Git metadata, network,
+credentials or repository settings are used. `pnpm test:ci-policy` includes this
+suite through #23's existing CI command; no workflow is duplicated.
+
+Authorized Git agents run `pnpm publication:preflight origin HEAD:refs/heads/<branch>`
+before the explicit push and `pnpm publication:verify origin HEAD:refs/heads/<branch>`
+immediately before PR creation. These real commands inspect the trusted checkout
+and (for verification) query its live origin; do not use unknown targets as tests.
+See [delivery safety](delivery-safety.md) for the exact manifest, mandatory sequence,
+limitations and separate administrator-owned branch-protection evidence. Synthetic
+passes do not prove real Git subprocess execution or active protected-main rules.
+
+Local implementation evidence: Node 24.20.0 / pnpm 11.25.0 passed 30 publication
+regressions (including injected subprocess options), 47 combined CI-policy cases,
+repository format, root-script/five-workspace uncached lint (six tasks including
+shared build), and test type-checks (four uncached tasks). These are working-tree
+checks, not clean-clone, live remote, GitHub protection or publication-revision
+evidence. No Git operations or repository settings mutations were performed.
+
+Independent test-step evidence on the same pinned toolchain: 34 publication tests
+and 51 combined CI-policy tests passed with no failures or skips. Four new tests
+cover every inspection's exit/signal/error failure despite valid stdout, SHA-256
+verification, actual CLI success and actual CLI failure/redaction. Each new test
+was proven sensitive by a failing mutation of a temporary source copy; production
+code was not modified. Real Git behavior and live protection remain unverified.
+
 ## Task 14 blocking PR quality (#23)
 
 Trace: implementation-plan Task 14; U-20; technical specification §14.2 and §17.1.
