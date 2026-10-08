@@ -187,6 +187,8 @@ describe('HTTP contract', () => {
     expect(problemType('DAILY_SESSION_LIMIT_REACHED')).toBe(
       'urn:mobey:problem:daily-session-limit-reached',
     );
+    expect(problemType('NOT_FOUND')).toBe('urn:mobey:problem:not-found');
+    expect(problemType('FORBIDDEN')).toBe('urn:mobey:problem:forbidden');
   });
 
   test.each(Object.keys(PROBLEMS) as ProblemCode[])(
