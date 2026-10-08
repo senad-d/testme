@@ -26,6 +26,41 @@ describe('local runtime boundary', () => {
     });
   });
 
+  test.each([' 0.0.0.0 ', '\t127.0.0.1\n'])(
+    'trims surrounding whitespace from listen host %j',
+    (host) => {
+      expect(readRuntimeConfig({ API_HOST: host })).toEqual({ host: host.trim() });
+    },
+  );
+
+  test.each(['', '   ', '\t\n'])(
+    'defaults to loopback when listen host %j is empty after trimming',
+    (host) => {
+      expect(readRuntimeConfig({ API_HOST: host })).toEqual({ host: '127.0.0.1' });
+    },
+  );
+
+  test.each([
+    [' \t0.0.0.0\n', 'COOKIE_MODE', LOCAL_CONFIGURATION.COOKIE_MODE],
+    [' \t\n', 'SESSION_TOKEN_SECRET', LOCAL_CONFIGURATION.SESSION_TOKEN_SECRET],
+  ])(
+    'rejects development-only setting with normalized host %j / %s in production',
+    (host, name, value) => {
+      expect(() =>
+        readRuntimeConfig({ NODE_ENV: 'production', API_HOST: host, [name]: value }),
+      ).toThrow(new Error('Invalid API runtime configuration.'));
+    },
+  );
+
+  test.each(['unexpected.invalid', ' unexpected.invalid ', '0.0. 0.0', ' localhost '])(
+    'rejects invalid listen host %j without exposing the value',
+    (host) => {
+      expect(() => readRuntimeConfig({ API_HOST: host })).toThrow(
+        new Error('Invalid API runtime configuration.'),
+      );
+    },
+  );
+
   test('rejects encoded local credentials without rejecting percent signs in opaque settings', () => {
     expect(() =>
       readRuntimeConfig({
