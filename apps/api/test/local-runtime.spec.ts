@@ -21,10 +21,34 @@ afterEach(() => vi.unstubAllEnvs());
 describe('local runtime boundary', () => {
   test('defaults to loopback and secure mode while allowing an explicit container host', () => {
     expect(readRuntimeConfig({})).toEqual({ host: '127.0.0.1' });
+    expect(readRuntimeConfig({ API_HOST: '127.0.0.1' })).toEqual({ host: '127.0.0.1' });
     expect(readRuntimeConfig({ API_HOST: '0.0.0.0', NODE_ENV: 'production' })).toEqual({
       host: '0.0.0.0',
     });
   });
+
+  test('treats an empty API_HOST as absent', () => {
+    expect(readRuntimeConfig({ API_HOST: '' })).toEqual({ host: '127.0.0.1' });
+  });
+
+  test.each([
+    { COOKIE_MODE: 'insecure' },
+    { COOKIE_MODE: 'localhost-development' },
+    { CSRF_SECRET: LOCAL_CONFIGURATION.CSRF_SECRET },
+  ])('empty API_HOST preserves production configuration rejection for %j', (configuration) => {
+    expect(() =>
+      readRuntimeConfig({ ...configuration, API_HOST: '', NODE_ENV: 'production' }),
+    ).toThrow(new Error('Invalid API runtime configuration.'));
+  });
+
+  test.each([' ', ' 127.0.0.1 ', 'localhost', 'unexpected.invalid', '127.0.0.2', '::1'])(
+    'rejects non-empty invalid API_HOST %j without exposing the value',
+    (host) => {
+      expect(() => readRuntimeConfig({ API_HOST: host })).toThrow(
+        new Error('Invalid API runtime configuration.'),
+      );
+    },
+  );
 
   test('rejects encoded local credentials without rejecting percent signs in opaque settings', () => {
     expect(() =>

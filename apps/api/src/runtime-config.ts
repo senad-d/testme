@@ -14,7 +14,8 @@ const LOCAL_CONFIGURATION_NAMES = [
 export function readRuntimeConfig(environment: RuntimeEnvironment = process.env): Readonly<{
   host: '127.0.0.1' | '0.0.0.0';
 }> {
-  const host = environment['API_HOST'] ?? '127.0.0.1';
+  const configuredHost = environment['API_HOST'];
+  const host = configuredHost === '' ? '127.0.0.1' : (configuredHost ?? '127.0.0.1');
   const cookieMode = environment['COOKIE_MODE'] ?? 'secure';
   const development = environment['NODE_ENV'] === 'development';
 
