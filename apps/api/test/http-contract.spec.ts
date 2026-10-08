@@ -20,6 +20,7 @@ import { afterAll, beforeAll, describe, expect, test } from 'vitest';
 import {
   ProblemDetailsException,
   type ProblemCode,
+  problemType,
   PROBLEMS,
   REQUEST_ID_PATTERN,
 } from '../src/common/http/problem-details.filter.js';
@@ -173,11 +174,21 @@ function assertProblem(
   expect(response.headers['content-type']).toMatch(/^application\/problem\+json(?:;|$)/);
   expect(response.headers['cache-control']).toBe('no-store');
   expect(validateProblem(body), JSON.stringify(validateProblem.errors)).toBe(true);
-  expect(body).toMatchObject({ code, requestId: response.headers['x-request-id'] });
+  expect(body).toMatchObject({
+    code,
+    type: `urn:mobey:problem:${code.toLowerCase().split('_').join('-')}`,
+    requestId: response.headers['x-request-id'],
+  });
   expect(response.body).not.toContain(SYNTHETIC_MARKER);
 }
 
 describe('HTTP contract', () => {
+  test('replaces every underscore in a problem-type URN', () => {
+    expect(problemType('DAILY_SESSION_LIMIT_REACHED')).toBe(
+      'urn:mobey:problem:daily-session-limit-reached',
+    );
+  });
+
   test.each(Object.keys(PROBLEMS) as ProblemCode[])(
     'validates and redacts the %s problem example',
     async (code) => {
@@ -432,15 +443,16 @@ describe('generated contract', () => {
     expect(validate({ amount: '1', extra: SYNTHETIC_MARKER })).toBe(false);
   });
 
-  test('generated types reject numeric money and mismatched problem statuses', () => {
+  test('generated types reject numeric money, mismatched problem statuses, and legacy problem URNs', () => {
     const configPath = join(process.cwd(), 'tsconfig.json');
     const config = ts.readConfigFile(configPath, (path) => ts.sys.readFile(path));
     const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd());
     const fixturePath = join(dirname(CONTRACT_PATH), '__contract_fixture.ts');
     const fixture = `
-      import type { DecimalMoney, StateConflict } from './api.js';
+      import type { DecimalMoney, StateConflict, DailySessionLimitReached } from './api.js';
       export const money: DecimalMoney = '9007199254740993';
       export const status: StateConflict['status'] = 409;
+      export const type: DailySessionLimitReached['type'] = 'urn:mobey:problem:daily-session-limit-reached';
     `;
     const diagnostics = (source: string): readonly ts.Diagnostic[] => {
       const options = { ...parsed.options, noEmit: true, rootDir: dirname(CONTRACT_PATH) };
@@ -458,6 +470,11 @@ describe('generated contract', () => {
         (diagnostic) => diagnostic.code,
       ),
     ).toEqual([2322, 2322]);
+    expect(
+      diagnostics(
+        fixture.replace('daily-session-limit-reached', 'daily-session_limit_reached'),
+      ).map((diagnostic) => diagnostic.code),
+    ).toEqual([2322]);
   }, 30_000);
 
   test('exports generated contracts and exact money conversion types through the shared package entrypoint for web consumers', () => {
@@ -674,6 +691,25 @@ describe('generated contract', () => {
     const body: Record<string, unknown> = response.json();
     expect(validateProblem({ ...body, status: 400 })).toBe(false);
     expect(validateProblem({ ...body, [SYNTHETIC_MARKER]: SYNTHETIC_MARKER })).toBe(false);
+  });
+
+  test.each([
+    'urn:mobey:problem:daily-session_limit_reached',
+    'urn:mobey:problem:daily_session_limit_reached',
+    'urn:mobey:problem:DAILY_SESSION_LIMIT_REACHED',
+    'urn:mobey:problem:state-conflict',
+  ])('rejects noncanonical or mismatched problem-type URN %s in the schema', (type) => {
+    const body = {
+      type: 'urn:mobey:problem:daily-session-limit-reached',
+      title: 'Daily session limit reached',
+      status: 409,
+      code: 'DAILY_SESSION_LIMIT_REACHED',
+      detail: 'No daily session slot is available.',
+      instance: `urn:mobey:request:${REQUEST_ID}`,
+      requestId: REQUEST_ID,
+    };
+    expect(validateProblem(body), JSON.stringify(validateProblem.errors)).toBe(true);
+    expect(validateProblem({ ...body, type })).toBe(false);
   });
 
   test('generates byte-identical output twice and matches the committed file', async () => {
