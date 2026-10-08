@@ -54,7 +54,7 @@ export function createRequestId(supplied: unknown): string {
 }
 
 export function problemType(code: ProblemCode): string {
-  return `urn:mobey:problem:${code.toLowerCase().replaceAll('_', '-')}`;
+  return `urn:mobey:problem:${code.toLowerCase().replace('_', '-')}`;
 }
 
 export class ProblemDetailsException extends HttpException {
