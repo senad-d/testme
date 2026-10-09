@@ -13,6 +13,7 @@ const LOCAL_CONFIGURATION_NAMES = [
 // Future auth owners must validate their own required configuration and approved lifetimes.
 export function readRuntimeConfig(environment: RuntimeEnvironment = process.env): Readonly<{
   host: '127.0.0.1' | '0.0.0.0';
+  port: number;
 }> {
   const configuredHost = environment['API_HOST']?.trim() ?? '';
   const host = configuredHost === '' ? '127.0.0.1' : configuredHost;
@@ -22,6 +23,8 @@ export function readRuntimeConfig(environment: RuntimeEnvironment = process.env)
   try {
     if (
       (host !== '127.0.0.1' && host !== '0.0.0.0') ||
+      portText.length === 0 ||
+      /[^0-9]/u.test(portText) ||
       (cookieMode !== 'secure' && cookieMode !== 'localhost-development') ||
       (!development &&
         (cookieMode === 'localhost-development' ||
@@ -33,10 +36,16 @@ export function readRuntimeConfig(environment: RuntimeEnvironment = process.env)
     ) {
       throw new Error('Invalid configuration.');
     }
+    // Match the existing runtime integer parser; normalize permitted leading zeroes for JSON.
+    const parsed: unknown = JSON.parse(portText.replace(/^0+(?=[0-9])/u, ''));
+    if (typeof parsed !== 'number' || !Number.isInteger(parsed) || parsed < 1 || parsed > 65535) {
+      throw new Error('Invalid configuration.');
+    }
+    port = parsed;
   } catch {
     // Do not include configuration values, including malformed URLs, in errors.
     throw new Error('Invalid API runtime configuration.');
   }
 
-  return { host };
+  return { host, port };
 }
