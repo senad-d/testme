@@ -214,7 +214,9 @@ test('production-built web reaches the migrated API through same-origin routing'
   const body: unknown = await response.json();
   expect(body).toEqual({ status: 'ok' });
   await expect(page.getByRole('heading', { name: 'Mobey', exact: true })).toBeVisible();
-  await expect(page.getByRole('status')).toHaveText('API readiness: ready');
+  await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
+    'API readiness: ready',
+  );
   await expect(page.getByText('Build: 0.0.0', { exact: true })).toBeVisible();
   expect(requests.some((url) => /\/assets\/.*\.js$/.test(url))).toBe(true);
   expect(requests.some((url) => url.includes('/@vite/client'))).toBe(false);

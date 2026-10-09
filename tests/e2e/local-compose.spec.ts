@@ -202,7 +202,9 @@ test('clean Compose migrates once and serves browser readiness with non-root ser
   page,
 }) => {
   await page.goto(webUrl);
-  await expect(page.getByRole('status')).toHaveText('API readiness: ready');
+  await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
+    'API readiness: ready',
+  );
   await expect(page.getByText('Build: 0.0.0')).toBeVisible();
   expect(
     compose([
@@ -289,7 +291,9 @@ test('web HMR and API source restart change responses without rebuilding images'
   const originalApi = await readFile(apiSource, 'utf8');
   try {
     await page.goto(webUrl);
-    await expect(page.getByRole('status')).toHaveText('API readiness: ready');
+    await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
+      'API readiness: ready',
+    );
     const changedWeb = originalWeb.replace('<h1>Mobey</h1>', '<h1>Mobey reload proof</h1>');
     expect(changedWeb, 'HMR fixture must change the visible heading').not.toBe(originalWeb);
     await writeFile(webSource, changedWeb);
@@ -407,7 +411,9 @@ test('Watch excludes new credentials and generated artifacts while syncing sourc
       )
       .toBe(200);
     await page.goto(webUrl);
-    await expect(page.getByRole('status')).toHaveText('API readiness: ready');
+    await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
+      'API readiness: ready',
+    );
   } finally {
     for (const service of ['api', 'web']) {
       const source = join(directory, 'apps', service, 'src');
@@ -431,7 +437,9 @@ test('database survives recreation, failed migrations block API startup, and bro
     sql(`UPDATE mobey_platform.migrations SET checksum = repeat('0', 64) WHERE position = 1`);
     await expect.poll(async () => (await fetch(`${webUrl}/api/v1/health/ready`)).status).toBe(503);
     await page.goto(webUrl);
-    await expect(page.getByRole('status')).toHaveText('API readiness: unavailable');
+    await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
+      'API readiness: unavailable',
+    );
     compose(['stop', 'web', 'api']);
     compose(['rm', '-f', 'web', 'api', 'migrate']);
     expect(() => compose(['up', '-d', 'api'])).toThrow();
@@ -455,7 +463,9 @@ test('database survives recreation, failed migrations block API startup, and bro
   const recoveredWebUrl = `http://${compose(['port', 'web', '5173'])}`;
   expect((await fetch(`${recoveredWebUrl}/api/v1/health/ready`)).status).toBe(200);
   await page.goto(recoveredWebUrl);
-  await expect(page.getByRole('status')).toHaveText('API readiness: ready');
+  await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
+    'API readiness: ready',
+  );
 });
 
 test('build context excludes canaries and production stages are non-root and runnable', async () => {
