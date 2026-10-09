@@ -16,7 +16,6 @@ import {
 import { readRuntimeConfig } from './runtime-config.js';
 
 const API_PREFIX = 'api/v1';
-const API_PORT = 3000;
 const MAX_REQUEST_BODY_BYTES = 1_048_576;
 
 class StrictValidationPipe extends ValidationPipe {
@@ -81,8 +80,9 @@ export async function createApplication(): Promise<NestFastifyApplication> {
 }
 
 async function bootstrap(): Promise<void> {
+  const { host, port } = readRuntimeConfig();
   const application = await createApplication();
-  await application.listen(API_PORT, readRuntimeConfig().host);
+  await application.listen(port, host);
 }
 
 const entrypoint = process.argv[1];

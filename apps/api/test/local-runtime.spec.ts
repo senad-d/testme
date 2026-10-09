@@ -1,6 +1,10 @@
-import { spawnSync } from 'node:child_process';
+import { spawn, spawnSync } from 'node:child_process';
+import { once } from 'node:events';
+import { createServer } from 'node:net';
+import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
+import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { createApplication } from '../src/main.js';
@@ -16,7 +20,10 @@ const LOCAL_CONFIGURATION = {
   COOKIE_MODE: 'localhost-development',
 } as const;
 
-afterEach(() => vi.unstubAllEnvs());
+afterEach(() => {
+  vi.unstubAllEnvs();
+  vi.restoreAllMocks();
+});
 
 describe('local runtime boundary', () => {
   test('defaults to loopback and secure mode while allowing an explicit container host', () => {
@@ -24,6 +31,19 @@ describe('local runtime boundary', () => {
     expect(readRuntimeConfig({ API_HOST: '127.0.0.1' })).toEqual({ host: '127.0.0.1' });
     expect(readRuntimeConfig({ API_HOST: '0.0.0.0', NODE_ENV: 'production' })).toEqual({
       host: '0.0.0.0',
+      port: 3000,
+    });
+  });
+
+  test.each([
+    ['1', 1],
+    ['43210', 43210],
+    ['65535', 65535],
+    ['03000', 3000],
+  ] as const)('accepts decimal integer port %s as a number', (port, expected) => {
+    expect(readRuntimeConfig({ API_PORT: port })).toEqual({
+      host: '127.0.0.1',
+      port: expected,
     });
   });
 
