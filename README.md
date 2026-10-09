@@ -23,6 +23,13 @@ API readiness. `migrate` exiting successfully is expected, not an unhealthy serv
 The API also exposes http://localhost:3000/api/v1/health/live and `/health/ready`.
 All published ports bind to loopback; PostgreSQL has no host port.
 
+Outside Compose, the API listener defaults to port 3000. Set `API_PORT` to an
+ASCII decimal integer from 1 through 65535 to override it (leading zeroes are
+accepted; whitespace, signs, fractions and exponent notation are rejected).
+Invalid configuration fails before application creation without exposing values.
+Compose keeps its fixed 3000 mapping, health checks and web proxy target; this
+listener override does not remap them.
+
 Compose Watch synchronizes web source for Vite HMR. API source changes synchronize
 and restart the API, recompiling TypeScript **without rebuilding the image**.
 Vite config and `index.html` changes are also watched. Keep the command running
