@@ -298,6 +298,77 @@ OQ-04 lockout durations and OQ-11 balance ceilings remain explicit decision gate
 | Workspace lint graph                   | `pnpm lint`                                                                                                                                                                                                                                                                                                                                        | Runs strict typed lint over five implemented workspaces plus root CI scripts; rejects warnings. Task 14 wires the previously empty graph.                                                                                                                                                                                                                                                                                                                                                                                                                                         | Known Task 14/#23 limitation                                  |
 | Contract-change formatting             | `pnpm --filter @mobey/api exec prettier --check src/main.ts src/app.module.ts src/common/http/problem-details.filter.ts src/openapi.ts test/http-contract.spec.ts package.json ../../packages/shared/src/generated/api.ts ../../packages/shared/src/index.ts ../../pnpm-lock.yaml ../../pnpm-workspace.yaml ../../docs/testing.md ../../AGENTS.md` | Checks every changed source, generated artifact, manifest, and document using the pinned formatter and repository configuration.                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Exact Task 13 manifest                                        |
 
+### Contract compiler-test budget (#130)
+
+Trace: CONTRACT-TYPE-BUDGET; Task 13/#22 and Task 14/#23; REQ-BAL-05,
+U-20. OQ-11 and production/generated contracts are unchanged.
+
+The two compiler tests now check all ten virtual external-module fixtures in
+**two programs**, rather than three generated-file programs plus seven web-consumer
+programs. Each fixture still has an exact diagnostic-code assertion: valid imports
+produce no diagnostics; numeric money and wrong problem statuses produce
+`[2322, 2322]`; a legacy problem URN produces `[2322]`; missing identity name or
+description each produces `[2741]`; numeric parser input, non-BigInt formatter
+input and unknown conversion error code each produces `[2345]`. Global/config,
+dependency and library diagnostics are separately required to be empty, not dropped
+by per-file grouping. Both compiler policies remain strict with `skipLibCheck: false`;
+the web test still uses its real tsconfig and resolves the built shared entrypoint.
+No fixture is written to disk, and neither 30-second test timeout was increased.
+Two lightweight harness regressions additionally use isolated synthetic modules and
+an ES5 library: they reject redistributed per-file diagnostics even when aggregate
+codes match, and reject missing type-library diagnostics outside otherwise matching
+fixtures. Each first proves its baseline compiles with the exact expected errors.
+These harness checks do not replace the real API/web compiler-policy tests.
+
+| Check                            | Command                                                                                                                                                                                                                                                      | Evidence scope                                                                                                                                                                                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compiler diagnostic reproduction | `pnpm --filter @mobey/shared build && pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/http-contract.spec.ts --coverage -t 'compiler fixture assertions\|generated types reject\|exports generated contracts' --reporter=dot` | The two real-config compiler tests and two batching-harness regressions; other tests are deliberately unselected. Diagnostic/profile evidence only, never complete coverage acceptance. It replaces the API LCOV with partial output; rerun `pnpm test:coverage` before coverage normalization. |
+
+Profiling on macOS arm64 with Node 24.20.0, pnpm 11.25.0, TypeScript 6.0.3
+and V8 coverage compared the original separate-program strategy with batching,
+using the complete `pnpm test:coverage` workload. The source was the #130
+working-tree change over base `877d3e64498279425033993e35b5896c63539b6a`, not a
+committed/clean-checkout revision. Temporary `performance.now()` probes measured
+`createProgram` setup separately from `getPreEmitDiagnostics`; all probes and
+sensitivity mutations were removed before final verification.
+
+| Compiler group                | Separate setup / diagnostics | Batched setup / diagnostics |
+| ----------------------------- | ---------------------------- | --------------------------- |
+| Generated-file fixtures (3)   | 2,280 / 3,422 ms             | 870 / 1,597 ms              |
+| Web package-root fixtures (7) | 7,434 / 16,317 ms            | 1,732 / 2,733 ms            |
+
+Repeated dependency/library setup and checking dominated the original cost. Web
+compiler work fell from 23,751 to 4,465 ms in these local profiled runs; total API
+suite duration fell from 35.54 to 14.05 seconds. These measurements are observations,
+not timing thresholds or pinned-runner guarantees. Temporary sensitivity probes
+confirmed both tests fail if invalid fixture sources are replaced by the valid
+source, and both fail on a real missing type-library diagnostic outside the fixture
+files. No production source or generated artifact was mutated.
+
+Full coverage uses the Task 14 registry command, not the reproduction above. Local
+Docker was explicitly `unix:///Users/senad/.colima/default/docker.sock`, with
+`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`, Docker Engine 29.2.1
+and isolated Testcontainers PostgreSQL. The first instrumented batched complete run
+passed 172 shared, 36 web and 184 API tests (392 total, zero skipped).
+Two subsequent complete runs of the final source each passed all 392 tests with
+zero skipped or failed tests. API suite durations were 12.45 and 11.25 seconds;
+the generated-file compiler tests took 2,615 and 2,010 ms, and the web-consumer
+compiler tests took 3,287 and 2,861 ms. `pnpm contract --force` passed without
+rewriting generated bytes, and `pnpm exec turbo run type-check:tests --force`
+passed all four declared build/type tasks uncached. Local runs do not supply the
+required repeated ubuntu-24.04 CI-runner evidence, independent review or
+clean-checkout evidence; those remain delivery requirements before closing #130.
+
+Test-step verification after adding the two harness regressions used the same
+pinned local toolchain and explicit Docker target above. Two complete final-test-source
+runs of `pnpm test:coverage --reporter=dot` each passed 172 shared, 36 web and
+186 API tests (394 total, zero failed/skipped), with API durations 12.51 and 10.63
+seconds. The new regressions each failed under a temporary targeted helper mutation
+(aggregate-only comparison; omitted non-fixture diagnostic assertion); both mutations
+were restored. Strict test types, API typed lint, formatting and contract drift also
+passed. This is local working-tree evidence, not repeated Ubuntu CI or committed-revision
+acceptance; the new test additions also require delivery review.
+
 In an isolated worktree, set `TURBO_CACHE_DIR="$PWD/.turbo/cache"` before workspace
 commands to keep Turbo's cache inside that checkout rather than its shared worktree
 cache.
