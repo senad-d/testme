@@ -15,9 +15,8 @@ export function readRuntimeConfig(environment: RuntimeEnvironment = process.env)
   host: '127.0.0.1' | '0.0.0.0';
   port: number;
 }> {
-  const host = environment['API_HOST'] ?? '127.0.0.1';
-  const portText = environment['API_PORT'] ?? '3000';
-  let port: number;
+  const configuredHost = environment['API_HOST'] ?? '127.0.0.1';
+  const host = configuredHost === 'localhost' ? '127.0.0.1' : configuredHost;
   const cookieMode = environment['COOKIE_MODE'] ?? 'secure';
   const development = environment['NODE_ENV'] === 'development';
 

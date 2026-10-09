@@ -4,7 +4,7 @@ import { createServer } from 'node:net';
 import { setTimeout } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 
-import { NestFactory } from '@nestjs/core';
+import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, test, vi } from 'vitest';
 
 import { createApplication } from '../src/main.js';
@@ -27,7 +27,10 @@ afterEach(() => {
 
 describe('local runtime boundary', () => {
   test('defaults to loopback and secure mode while allowing an explicit container host', () => {
-    expect(readRuntimeConfig({})).toEqual({ host: '127.0.0.1', port: 3000 });
+    expect(readRuntimeConfig({})).toEqual({ host: '127.0.0.1' });
+    expect(readRuntimeConfig({ API_HOST: '127.0.0.1', NODE_ENV: 'production' })).toEqual({
+      host: '127.0.0.1',
+    });
     expect(readRuntimeConfig({ API_HOST: '0.0.0.0', NODE_ENV: 'production' })).toEqual({
       host: '0.0.0.0',
       port: 3000,
@@ -180,6 +183,74 @@ describe('local runtime boundary', () => {
           else resolve();
         });
       });
+    }
+  });
+
+  test.each([undefined, 'development', 'production'])(
+    'normalizes localhost to IPv4 loopback with NODE_ENV=%s',
+    (mode) => {
+      expect(readRuntimeConfig({ API_HOST: 'localhost', NODE_ENV: mode })).toEqual({
+        host: '127.0.0.1',
+      });
+    },
+  );
+
+  test.each([
+    '',
+    '::1',
+    'LOCALHOST',
+    ' localhost ',
+    'localhost.',
+    '127.0.0.2',
+    'unexpected.invalid',
+  ])('rejects unsupported host %s without exposing configuration', (host) => {
+    expect(() => readRuntimeConfig({ API_HOST: host })).toThrow(
+      new Error('Invalid API runtime configuration.'),
+    );
+  });
+
+  test('localhost does not bypass production guards for local settings or unknown cookie modes', () => {
+    for (const [name, value] of Object.entries(LOCAL_CONFIGURATION)) {
+      expect(() =>
+        readRuntimeConfig({ API_HOST: 'localhost', NODE_ENV: 'production', [name]: value }),
+      ).toThrow(new Error('Invalid API runtime configuration.'));
+    }
+    expect(() =>
+      readRuntimeConfig({
+        API_HOST: 'localhost',
+        NODE_ENV: 'development',
+        COOKIE_MODE: 'insecure',
+      }),
+    ).toThrow(new Error('Invalid API runtime configuration.'));
+    expect(
+      readRuntimeConfig({ ...LOCAL_CONFIGURATION, API_HOST: 'localhost', NODE_ENV: 'development' }),
+    ).toEqual({ host: '127.0.0.1' });
+  });
+
+  test('compiled API accepts localhost and serves liveness on IPv4 loopback', async () => {
+    vi.stubEnv('API_HOST', 'localhost');
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('COOKIE_MODE', 'secure');
+    for (const name of Object.keys(LOCAL_CONFIGURATION)) {
+      if (name !== 'COOKIE_MODE') vi.stubEnv(name, undefined);
+    }
+    // Exercise emitted Nest decorator metadata, as in the health/version suite.
+    const compiledMain: unknown = await import(new URL('../dist/main.js', import.meta.url).href);
+    const { createApplication: createCompiledApplication } = compiledMain as {
+      createApplication: typeof createApplication;
+    };
+    const application = await createCompiledApplication();
+    try {
+      await application.listen(0, readRuntimeConfig().host);
+      const http: FastifyInstance = application.getHttpAdapter().getInstance();
+      expect(http.server.address()).toMatchObject({ address: '127.0.0.1', family: 'IPv4' });
+      const liveness = await fetch(`${await application.getUrl()}/api/v1/health/live`, {
+        signal: AbortSignal.timeout(3_000),
+      });
+      expect(liveness.status).toBe(200);
+      expect(await liveness.json()).toEqual({ status: 'ok' });
+    } finally {
+      await application.close();
     }
   });
 
