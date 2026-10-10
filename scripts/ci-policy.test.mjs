@@ -16,6 +16,52 @@ const workflow = parse(
   await readFile(new URL('../.github/workflows/ci.yml', import.meta.url), 'utf8'),
 );
 const root = new URL('..', import.meta.url);
+const issueForm = parse(
+  await readFile(new URL('../.github/ISSUE_TEMPLATE/mvp-task.yml', import.meta.url), 'utf8'),
+);
+
+function validateDependencyGuidance(form) {
+  const dependencies = form.body.find((field) => field.id === 'dependencies');
+  assert.ok(dependencies, 'The issue form must collect dependency readiness evidence');
+  assert.equal(dependencies.validations.required, true);
+  const description = dependencies.attributes.description;
+  assert.match(description, /dependency readiness evidence/i);
+  assert.match(description, /parent issue/i);
+  assert.match(description, /native blocked-by dependency added after creation/i);
+  assert.match(description, /never a "Depends on:" line in the body/i);
+}
+
+// Issue-form guidance is rendered by GitHub, so validate the parsed YAML rather
+// than punctuation/indentation or an application UI that does not own the form.
+test('issue form requires readiness evidence and native blocked-by links after creation', () => {
+  validateDependencyGuidance(issueForm);
+});
+
+test('dependency guidance coverage rejects body-only ordering and lost readiness requirements', () => {
+  const mutations = [
+    (form) => {
+      form.body = form.body.filter((field) => field.id !== 'dependencies');
+    },
+    (form) => {
+      form.body.find((field) => field.id === 'dependencies').validations.required = false;
+    },
+    ...[
+      ['dependency readiness evidence', 'issue references'],
+      ['parent issue', 'related information'],
+      ['native blocked-by dependency added after creation', 'Depends on: line in the body'],
+      ['never a "Depends on:" line in the body', 'a "Depends on:" line in the body'],
+    ].map(([original, replacement]) => (form) => {
+      const attributes = form.body.find((field) => field.id === 'dependencies').attributes;
+      assert.ok(attributes.description.includes(original), `Mutation target: ${original}`);
+      attributes.description = attributes.description.replace(original, replacement);
+    }),
+  ];
+  for (const mutate of mutations) {
+    const changed = structuredClone(issueForm);
+    mutate(changed);
+    assert.throws(() => validateDependencyGuidance(changed), assert.AssertionError);
+  }
+});
 
 function validatePolicy(ci) {
   assert.deepEqual(ci.permissions, { contents: 'read' });

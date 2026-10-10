@@ -26,7 +26,7 @@ body:
     id: dependencies
     attributes:
       label: Dependencies
-      description: 'Begin with "Depends on: #<issue>, ..." or "Depends on: none." Include dependency readiness evidence and any parent issue.'
+      description: 'Include dependency readiness evidence and any parent issue. Delivery order is a native blocked-by dependency added after creation, never a "Depends on:" line in the body.'
     validations:
       required: true
   - type: textarea
