@@ -437,6 +437,91 @@ describe('HTTP contract', () => {
   });
 });
 
+// Each fixture is an external module with its own assignments. Compile all variants
+// together so strict checking of the same dependency/library graph happens once.
+function assertCompilerFixtures(
+  fixturePath: string,
+  options: ts.CompilerOptions,
+  directory: string,
+  fixtures: readonly { source: string; codes: readonly number[] }[],
+): void {
+  const sources = new Map(
+    fixtures.map((fixture, index) => [
+      fixturePath.replace(/\.ts$/, `_${index.toString()}.ts`),
+      fixture,
+    ]),
+  );
+  const host = ts.createCompilerHost(options);
+  host.getCurrentDirectory = () => directory;
+  const original = host.getSourceFile.bind(host);
+  host.getSourceFile = (name, version, onError, fresh) => {
+    const source = sources.get(name)?.source;
+    return source === undefined
+      ? original(name, version, onError, fresh)
+      : ts.createSourceFile(name, source, version, true);
+  };
+  const diagnostics = ts.getPreEmitDiagnostics(
+    ts.createProgram([...sources.keys()], options, host),
+  );
+  // Do not lose config, dependency or library errors when grouping by fixture.
+  expect(
+    diagnostics
+      .filter((diagnostic) => !diagnostic.file || !sources.has(diagnostic.file.fileName))
+      .map((diagnostic) => diagnostic.messageText),
+  ).toEqual([]);
+  for (const [path, { codes }] of sources) {
+    expect(
+      diagnostics
+        .filter((diagnostic) => diagnostic.file?.fileName === path)
+        .map((diagnostic) => diagnostic.code),
+      path,
+    ).toEqual(codes);
+  }
+}
+
+describe('compiler fixture assertions', () => {
+  const directory = process.cwd();
+  const fixturePath = join(directory, 'test/__batched_diagnostic_fixture.ts');
+  const options: ts.CompilerOptions = {
+    strict: true,
+    skipLibCheck: false,
+    noEmit: true,
+    lib: ['lib.es5.d.ts'],
+    types: [],
+    module: ts.ModuleKind.NodeNext,
+    moduleResolution: ts.ModuleResolutionKind.NodeNext,
+  };
+
+  test('rejects redistributed diagnostics even when aggregate codes match', () => {
+    const fixtures = [
+      { source: 'export const value: string = 1;', codes: [2322] },
+      { source: 'export const value: number = "synthetic";', codes: [2322] },
+    ] as const;
+    // The same export name must be isolated, and both actual diagnostics must
+    // match before testing an incorrect per-file distribution of the same codes.
+    assertCompilerFixtures(fixturePath, options, directory, fixtures);
+    expect(() => {
+      assertCompilerFixtures(fixturePath, options, directory, [
+        { source: fixtures[0].source, codes: [2322, 2322] },
+        { source: fixtures[1].source, codes: [] },
+      ]);
+    }).toThrow();
+  });
+
+  test('rejects type-library errors outside fixtures with otherwise exact diagnostics', () => {
+    const fixtures = [{ source: 'export const value: string = 1;', codes: [2322] }];
+    assertCompilerFixtures(fixturePath, options, directory, fixtures);
+    expect(() => {
+      assertCompilerFixtures(
+        fixturePath,
+        { ...options, types: ['__synthetic_missing_type_library__'] },
+        directory,
+        fixtures,
+      );
+    }).toThrow();
+  });
+});
+
 describe('generated contract', () => {
   test('documents strict DTO objects consistently with unknown-field rejection', () => {
     const document = createOpenApiDocument(application);
@@ -448,7 +533,11 @@ describe('generated contract', () => {
   test('generated types reject numeric money, mismatched problem statuses, and legacy problem URNs', () => {
     const configPath = join(process.cwd(), 'tsconfig.json');
     const config = ts.readConfigFile(configPath, (path) => ts.sys.readFile(path));
+    expect(config.error).toBeUndefined();
     const parsed = ts.parseJsonConfigFileContent(config.config, ts.sys, process.cwd());
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.options.strict).toBe(true);
+    expect(parsed.options.skipLibCheck).toBe(false);
     const fixturePath = join(dirname(CONTRACT_PATH), '__contract_fixture.ts');
     const fixture = `
       import type { DecimalMoney, StateConflict, DailySessionLimitReached } from './api.js';
@@ -456,27 +545,22 @@ describe('generated contract', () => {
       export const status: StateConflict['status'] = 409;
       export const type: DailySessionLimitReached['type'] = 'urn:mobey:problem:daily-session-limit-reached';
     `;
-    const diagnostics = (source: string): readonly ts.Diagnostic[] => {
-      const options = { ...parsed.options, noEmit: true, rootDir: dirname(CONTRACT_PATH) };
-      const host = ts.createCompilerHost(options);
-      const original = host.getSourceFile.bind(host);
-      host.getSourceFile = (name, version, onError, fresh) =>
-        name === fixturePath
-          ? ts.createSourceFile(name, source, version, true)
-          : original(name, version, onError, fresh);
-      return ts.getPreEmitDiagnostics(ts.createProgram([fixturePath], options, host));
-    };
-    expect(diagnostics(fixture).map((diagnostic) => diagnostic.messageText)).toEqual([]);
-    expect(
-      diagnostics(fixture.replace("'9007199254740993'", '1.5').replace('= 409', '= 400')).map(
-        (diagnostic) => diagnostic.code,
-      ),
-    ).toEqual([2322, 2322]);
-    expect(
-      diagnostics(
-        fixture.replace('daily-session-limit-reached', 'daily-session_limit_reached'),
-      ).map((diagnostic) => diagnostic.code),
-    ).toEqual([2322]);
+    assertCompilerFixtures(
+      fixturePath,
+      { ...parsed.options, noEmit: true, rootDir: dirname(CONTRACT_PATH) },
+      process.cwd(),
+      [
+        { source: fixture, codes: [] },
+        {
+          source: fixture.replace("'9007199254740993'", '1.5').replace('= 409', '= 400'),
+          codes: [2322, 2322],
+        },
+        {
+          source: fixture.replace('daily-session-limit-reached', 'daily-session_limit_reached'),
+          codes: [2322],
+        },
+      ],
+    );
   }, 30_000);
 
   test('exports generated contracts and exact money conversion types through the shared package entrypoint for web consumers', () => {
@@ -517,39 +601,30 @@ describe('generated contract', () => {
       export const description: string = getApplicationDescription();
       export const applicationIdentity: VersionControllerVersionResponse = { name, version, description };
     `;
-    const diagnostics = (source: string): readonly ts.Diagnostic[] => {
-      const host = ts.createCompilerHost(parsed.options);
-      host.getCurrentDirectory = () => webDirectory;
-      const original = host.getSourceFile.bind(host);
-      host.getSourceFile = (name, version, onError, fresh) =>
-        name === fixturePath
-          ? ts.createSourceFile(name, source, version, true)
-          : original(name, version, onError, fresh);
-      return ts.getPreEmitDiagnostics(ts.createProgram([fixturePath], parsed.options, host));
-    };
-    expect(diagnostics(fixture).map((diagnostic) => diagnostic.messageText)).toEqual([]);
-    expect(
-      diagnostics(fixture.replace("'9007199254740993'", '1.5').replace('= 409', '= 400')).map(
-        (diagnostic) => diagnostic.code,
-      ),
-    ).toEqual([2322, 2322]);
-    expect(
-      diagnostics(
-        fixture.replace('{ name, version, description }', '{ version, description }'),
-      ).map((diagnostic) => diagnostic.code),
-    ).toEqual([2741]);
-    expect(
-      diagnostics(fixture.replace('{ name, version, description }', '{ name, version }')).map(
-        (diagnostic) => diagnostic.code,
-      ),
-    ).toEqual([2741]);
-    for (const invalid of [
-      fixture.replace("parseGameMoney('007.5')", 'parseGameMoney(7.5)'),
-      fixture.replace('formatGameMoney(parsedMoney)', 'formatGameMoney(750)'),
-      fixture.replace("new GameMoneyError('FORMAT')", "new GameMoneyError('INVALID')"),
-    ]) {
-      expect(diagnostics(invalid).map((diagnostic) => diagnostic.code)).toEqual([2345]);
-    }
+    assertCompilerFixtures(fixturePath, parsed.options, webDirectory, [
+      { source: fixture, codes: [] },
+      {
+        source: fixture.replace("'9007199254740993'", '1.5').replace('= 409', '= 400'),
+        codes: [2322, 2322],
+      },
+      {
+        source: fixture.replace('{ name, version, description }', '{ version, description }'),
+        codes: [2741],
+      },
+      {
+        source: fixture.replace('{ name, version, description }', '{ name, version }'),
+        codes: [2741],
+      },
+      { source: fixture.replace("parseGameMoney('007.5')", 'parseGameMoney(7.5)'), codes: [2345] },
+      {
+        source: fixture.replace('formatGameMoney(parsedMoney)', 'formatGameMoney(750)'),
+        codes: [2345],
+      },
+      {
+        source: fixture.replace("new GameMoneyError('FORMAT')", "new GameMoneyError('INVALID')"),
+        codes: [2345],
+      },
+    ]);
   }, 30_000);
 
   test('compiled shared package root exposes exact money conversion and coded errors', () => {

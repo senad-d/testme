@@ -25,7 +25,14 @@ FROM dependencies AS build
 RUN pnpm --filter @mobey/api build \
     && pnpm pm --filter @mobey/api --config.frozen-lockfile=true deploy --prod --legacy /runtime
 
-FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS production
+# Keep build/development on the existing toolchain; production needs only Node.
+FROM node:24.20.0-alpine3.24@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b641307de684d4a015ba7a4eaf AS production
+# Exact security patches fail closed if unavailable; never use an unpinned upgrade.
+# Remove unused package managers, not their metadata alone, from the runtime.
+RUN apk add --no-cache libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 zlib=1.3.2-r1 \
+    && rm -rf /usr/local/lib/node_modules /opt/yarn-* \
+    && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
+        /usr/local/bin/yarn /usr/local/bin/yarnpkg
 WORKDIR /app
 ENV NODE_ENV=production API_HOST=0.0.0.0
 COPY --from=build --chown=node:node /runtime/package.json ./package.json

@@ -46,10 +46,10 @@ No domain behavior, AWS resources, OQ approval or repository settings are added.
 | Repository formatting              | `pnpm format:check`                                                       | Authored source/config/docs and generated contracts; excludes private/output state and IssueMe-generated snapshots. Four planning documents receive formatting-only normalization.                                                                                                                                                                                                                                                    |
 | Strict lint                        | `pnpm lint --force`                                                       | Five workspace lint tasks plus root CI scripts; typed tests/configs included, zero warnings allowed.                                                                                                                                                                                                                                                                                                                                  |
 | Source/test types                  | `pnpm type-check --force && pnpm exec turbo run type-check:tests --force` | Production projects plus API/web/shared test/config projects, without skipping library checks. E2E is in its normal project.                                                                                                                                                                                                                                                                                                          |
-| Workflow regression                | `pnpm test:ci-policy`                                                     | Pinned actions/read-only permissions, required gates, bypass mutations, aggregate shell for 25 result combinations, Terraform HCL/JSON rejection, hygiene, LCOV path/record negatives and installer symlink confinement.                                                                                                                                                                                                              |
+| Workflow regression                | `pnpm test:ci-policy`                                                     | Pinned actions/read-only permissions, required gates and bypass mutations; aggregate event/ref/result matrix (PR merge requires skipped Sonar, main push/manual requires success, unsupported/missing inputs reject), aggregate bypass mutations, main-only Sonar scheduling matrix/mutations and main missing-token rejection; Terraform HCL/JSON rejection, hygiene, LCOV negatives and installer symlink confinement.              |
 | Unit/component/PostgreSQL coverage | `pnpm test:coverage`                                                      | Shared unit tests; React DOM readiness/API-version states, endpoint-specific mocks, HTTP 200-only/JSON/shape validation, network errors, safe text, unmount abort/late settlement and StrictMode replay with stale response/JSON-body success or failure; all API tests including Testcontainers PostgreSQL. Explicit local Docker required; absent suites cannot pass. Content remains an empty seam, not approved learning content. |
 | Coverage normalization             | `node scripts/prepare-coverage.mjs`                                       | Requires three nonempty LCOV reports and existing workspace TS paths; maps them to root-relative paths for Sonar. Never use partial API selections as full CI coverage evidence.                                                                                                                                                                                                                                                      |
-| Browser and production images      | `pnpm --filter @mobey/e2e test`                                           | Compose Watch regression mutates the extracted app heading and API route, fails immediately on missing anchors and restores sources; production-built platform smoke. Chromium and local Docker required. `pnpm test:platform` selects just the new smoke.                                                                                                                                                                            |
+| Browser and production images      | `pnpm --filter @mobey/e2e test`                                           | Compose Watch regression mutates the extracted app heading and API route, fails immediately on missing anchors and restores sources; production-built platform smoke plus API package-manager launcher/tree exclusion with synthetic launcher/metadata negative controls. Chromium and local Docker required. `pnpm test:platform` selects just the new smoke.                                                                        |
 | Contract drift                     | `pnpm contract --force`                                                   | Generator-owned bytes checked without rewriting reviewed output.                                                                                                                                                                                                                                                                                                                                                                      |
 | Dependency security                | `pnpm audit`                                                              | All locked dependencies/severities, no advisory exclusions.                                                                                                                                                                                                                                                                                                                                                                           |
 | Clean-checkout hygiene             | `node scripts/check-hygiene.mjs`                                          | Run before install/build only on clean source. Rejects private/generated paths and symlinks without reading their contents; reviewed env templates, migration SQL, contracts and lockfiles remain allowed. Not a command to run on an ordinary installed/private local checkout.                                                                                                                                                      |
@@ -85,16 +85,37 @@ source-map-js. A PostCSS patch-level override fixes the missing `NodeProps` decl
 exposed when type-checking Vitest configs; no `skipLibCheck` workaround is used.
 Existing API/contract and exact-money tests protect these compatibility boundaries.
 
+Production image remediation (objective 428, following the objective 427 failed
+PR #134 scan) leaves the build/development Node toolchain unchanged. The API runtime
+uses the same pinned Node release on digest-pinned Alpine 3.24, with exact OpenSSL
+and zlib package patches; unused npm/Corepack/Yarn files are removed entirely.
+The production dependency graph, compiled API and checked SQL remain intact.
+This musl runtime is suitable only while deployed dependencies remain compatible;
+new native addons require explicit build/runtime ABI verification. The web runtime
+uses digest-pinned unprivileged Nginx with exact vulnerable-library updates and
+restores UID 101 after installation. Package pins fail closed if unavailable;
+refresh them through reviewed changes, never an unpinned `apk upgrade` or scanner
+exception. All-severity, including unfixed, image scanning remains blocking.
+
 Sonar includes actual TypeScript web/API/shared/content/E2E tests, excludes generated,
 vendor, build and Terraform state/plan output, and imports normalized LCOV.
+Per the owner's objective 427 instruction, Sonar analysis is deferred from PRs to
+main. It runs after quality on main pushes and manual main runs only.
 `SONAR_TOKEN` must be an analysis-scoped repository secret reference; it is never
-written to files. Missing token, failed quality gate or timeout fails the job,
-including on fork PRs. Do not introduce `pull_request_target` to bypass that boundary.
-`CI required` uses `always()` and fails unless both quality and Sonar jobs succeeded.
-An administrator must separately require that check and establish live PR/Sonar
-results; file presence and local negative probes do not prove protected-main behavior.
-Intentional format/type/test/contract/Sonar failures still require a disposable live
-PR for GitHub-level acceptance evidence.
+written to files. Missing token, failed quality gate or timeout still fails main
+analysis. PRs, including forks, do not receive the token or run Sonar. Do not
+introduce `pull_request_target` to bypass that boundary.
+`CI required` uses `always()` and requires quality success on every accepted event.
+A PR merge ref requires exactly a skipped Sonar result; main push/manual runs require
+Sonar success. Failed, cancelled or skipped quality, failed/cancelled PR Sonar,
+skipped main Sonar, missing results and unsupported event/ref pairs fail closed.
+Manual feature-branch runs are not an alternative passing publication gate.
+This is a scheduling decision, not a passing Sonar result or security-check waiver.
+An administrator must separately require the aggregate check and establish live
+PR/main-Sonar results; local negative probes do not prove protected-main behavior.
+Intentional format/type/test/contract failures still require disposable live PR
+acceptance evidence; Sonar failures must be demonstrated on an authorized isolated
+main-event fixture, never by breaking shared main.
 
 Terraform does not exist. No region/account/backend/OQ default or cloud plan is
 invented. A fail-closed surface guard rejects newly introduced Terraform until its
@@ -298,6 +319,154 @@ OQ-04 lockout durations and OQ-11 balance ceilings remain explicit decision gate
 | Workspace lint graph                   | `pnpm lint`                                                                                                                                                                                                                                                                                                                                        | Runs strict typed lint over five implemented workspaces plus root CI scripts; rejects warnings. Task 14 wires the previously empty graph.                                                                                                                                                                                                                                                                                                                                                                                                                                         | Known Task 14/#23 limitation                                  |
 | Contract-change formatting             | `pnpm --filter @mobey/api exec prettier --check src/main.ts src/app.module.ts src/common/http/problem-details.filter.ts src/openapi.ts test/http-contract.spec.ts package.json ../../packages/shared/src/generated/api.ts ../../packages/shared/src/index.ts ../../pnpm-lock.yaml ../../pnpm-workspace.yaml ../../docs/testing.md ../../AGENTS.md` | Checks every changed source, generated artifact, manifest, and document using the pinned formatter and repository configuration.                                                                                                                                                                                                                                                                                                                                                                                                                                                  | Exact Task 13 manifest                                        |
 
+### Contract compiler-test budget (#130)
+
+Trace: CONTRACT-TYPE-BUDGET; Task 13/#22 and Task 14/#23; REQ-BAL-05,
+U-20. OQ-11 and production/generated contracts are unchanged.
+
+The two compiler tests now check all ten virtual external-module fixtures in
+**two programs**, rather than three generated-file programs plus seven web-consumer
+programs. Each fixture still has an exact diagnostic-code assertion: valid imports
+produce no diagnostics; numeric money and wrong problem statuses produce
+`[2322, 2322]`; a legacy problem URN produces `[2322]`; missing identity name or
+description each produces `[2741]`; numeric parser input, non-BigInt formatter
+input and unknown conversion error code each produces `[2345]`. Global/config,
+dependency and library diagnostics are separately required to be empty, not dropped
+by per-file grouping. Both compiler policies remain strict with `skipLibCheck: false`;
+the web test still uses its real tsconfig and resolves the built shared entrypoint.
+No fixture is written to disk, and neither 30-second test timeout was increased.
+Two lightweight harness regressions additionally use isolated synthetic modules and
+an ES5 library: they reject redistributed per-file diagnostics even when aggregate
+codes match, and reject missing type-library diagnostics outside otherwise matching
+fixtures. Each first proves its baseline compiles with the exact expected errors.
+These harness checks do not replace the real API/web compiler-policy tests.
+
+| Check                            | Command                                                                                                                                                                                                                                                      | Evidence scope                                                                                                                                                                                                                                                                                  |
+| -------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Compiler diagnostic reproduction | `pnpm --filter @mobey/shared build && pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/http-contract.spec.ts --coverage -t 'compiler fixture assertions\|generated types reject\|exports generated contracts' --reporter=dot` | The two real-config compiler tests and two batching-harness regressions; other tests are deliberately unselected. Diagnostic/profile evidence only, never complete coverage acceptance. It replaces the API LCOV with partial output; rerun `pnpm test:coverage` before coverage normalization. |
+
+Profiling on macOS arm64 with Node 24.20.0, pnpm 11.25.0, TypeScript 6.0.3
+and V8 coverage compared the original separate-program strategy with batching,
+using the complete `pnpm test:coverage` workload. The source was the #130
+working-tree change over base `877d3e64498279425033993e35b5896c63539b6a`, not a
+committed/clean-checkout revision. Temporary `performance.now()` probes measured
+`createProgram` setup separately from `getPreEmitDiagnostics`; all probes and
+sensitivity mutations were removed before final verification.
+
+| Compiler group                | Separate setup / diagnostics | Batched setup / diagnostics |
+| ----------------------------- | ---------------------------- | --------------------------- |
+| Generated-file fixtures (3)   | 2,280 / 3,422 ms             | 870 / 1,597 ms              |
+| Web package-root fixtures (7) | 7,434 / 16,317 ms            | 1,732 / 2,733 ms            |
+
+Repeated dependency/library setup and checking dominated the original cost. Web
+compiler work fell from 23,751 to 4,465 ms in these local profiled runs; total API
+suite duration fell from 35.54 to 14.05 seconds. These measurements are observations,
+not timing thresholds or pinned-runner guarantees. Temporary sensitivity probes
+confirmed both tests fail if invalid fixture sources are replaced by the valid
+source, and both fail on a real missing type-library diagnostic outside the fixture
+files. No production source or generated artifact was mutated.
+
+Full coverage uses the Task 14 registry command, not the reproduction above. Local
+Docker was explicitly `unix:///Users/senad/.colima/default/docker.sock`, with
+`TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock`, Docker Engine 29.2.1
+and isolated Testcontainers PostgreSQL. The first instrumented batched complete run
+passed 172 shared, 36 web and 184 API tests (392 total, zero skipped).
+Two subsequent complete runs of the final source each passed all 392 tests with
+zero skipped or failed tests. API suite durations were 12.45 and 11.25 seconds;
+the generated-file compiler tests took 2,615 and 2,010 ms, and the web-consumer
+compiler tests took 3,287 and 2,861 ms. `pnpm contract --force` passed without
+rewriting generated bytes, and `pnpm exec turbo run type-check:tests --force`
+passed all four declared build/type tasks uncached. Local runs do not supply the
+required repeated ubuntu-24.04 CI-runner evidence, independent review or
+clean-checkout evidence; those remain delivery requirements before closing #130.
+
+Test-step verification after adding the two harness regressions used the same
+pinned local toolchain and explicit Docker target above. Two complete final-test-source
+runs of `pnpm test:coverage --reporter=dot` each passed 172 shared, 36 web and
+186 API tests (394 total, zero failed/skipped), with API durations 12.51 and 10.63
+seconds. The new regressions each failed under a temporary targeted helper mutation
+(aggregate-only comparison; omitted non-fixture diagnostic assertion); both mutations
+were restored. Strict test types, API typed lint, formatting and contract drift also
+passed. This is local working-tree evidence, not repeated Ubuntu CI or committed-revision
+acceptance; the new test additions also require delivery review.
+
+### Delivery follow-up (#130 / PR #131, 2026-10-10)
+
+The committed compiler source at `e5dc29b3284d14ef9f715960161ef0fc4650439a`
+now has repeated complete coverage evidence on the pinned GitHub runner. CI run
+[37944711923, attempt 1](https://github.com/senad-d/testme/actions/runs/37944711923/attempts/1)
+and [attempt 2](https://github.com/senad-d/testme/actions/runs/37944711923/attempts/2)
+each checked out the same PR merge `428369b` (that feature commit against base
+`877d3e64498279425033993e35b5896c63539b6a`). Both used `ubuntu-24.04`,
+Node 24.20.0, pnpm 11.25.0 and the workflow's verified runner-local Docker socket
+`unix:///var/run/docker.sock`. Each complete `pnpm test:coverage` run passed
+172 shared, 36 web and 186 API tests (394 total, zero failed/skipped), including
+real PostgreSQL and both batching-harness regressions. No compiler assertion,
+strictness policy, fixture or timeout changed during this follow-up.
+
+| CI attempt | API suite duration | Generated-file compiler test | Web-consumer compiler test |
+| ---------- | ------------------ | ---------------------------- | -------------------------- |
+| 1          | 30.92 s            | 6,655 ms                     | 7,684 ms                   |
+| 2          | 30.97 s            | 6,472 ms                     | 7,987 ms                   |
+
+Both attempts also passed formatting, typed lint, source/test types and generated
+contract drift. **Neither complete workflow passed:** the later Compose test failed
+because its runner rejected `services.api.develop.watch.0.initial_sync`. That
+pre-existing Compose surface belongs to #127 / PR #134, not this two-file compiler
+correction. Downstream security/image checks and Sonar were skipped, and `CI required`
+failed closed. These coverage results must not be represented as whole-CI acceptance,
+Sonar approval or permission to merge; #23 retains whole-CI acceptance ownership.
+
+Recovery in the prepared linked worktree also ran the committed compiler source twice
+with Node 24.20.0/pnpm 11.25.0 and the explicit local Colima Docker target above:
+394 tests passed each time, with no failures/skips; API durations were 11.67 and
+11.54 seconds. Uncached contract drift, strict test types and API lint passed.
+The CI evidence supersedes the repeated-Ubuntu and committed-compiler-source gaps
+in the historical local reports above. Independent review of the final harness
+regressions, publication of this documentation update and checks at the resulting
+PR revision remain delivery gates; this follow-up did not modify compiler source.
+
+Independent follow-up test-step verification used Node 24.20.0/pnpm 11.25.0 and
+that explicit local Colima Docker target in the prepared worktree. The four focused
+compiler/harness tests passed (95 other tests deliberately unselected), followed
+by two complete coverage runs: each passed 172 shared, 36 web and 186 API tests
+(394 total, zero failed/skipped), with API durations 12.88 and 10.76 seconds.
+Uncached contract drift (two tasks), strict test types (four tasks), API lint and
+repository formatting passed. The documentation-only follow-up introduces no
+behavioral coverage gap, so no duplicate tests were added. These are local
+working-tree checks, not new CI, clean-checkout or Sonar acceptance evidence.
+
+Objective 436's newly cited failures were independently checked through GitHub's
+run/job logs and repository-file API. Main run
+[37920653332, attempt 1](https://github.com/senad-d/testme/actions/runs/37920653332/attempts/1)
+at `877d3e64498279425033993e35b5896c63539b6a` and PR #134 run
+[38081206197, attempt 1](https://github.com/senad-d/testme/actions/runs/38081206197/attempts/1)
+at `dc6088915276ad8a9860ea959ef595b27cd5b658` both lacked the batching helper.
+Their web-consumer tests timed out at 39,408 and 39,466 ms respectively. These are
+failures of the original compiler strategy, not regressions in #130's correction;
+the latter run's overall success on a later attempt does not erase its first failure.
+
+After integrating main into #130 at `282a744`, the unchanged batched compiler source
+passed the four focused compiler/harness tests, then two complete coverage runs on
+macOS arm64 with Node 24.20.0/pnpm 11.25.0 and the explicit local Colima target above.
+Each complete run passed 172 shared, 36 web and 186 API tests (394 total, no failures
+or skips), including real PostgreSQL; API durations were 11.67 and 11.41 seconds.
+Frozen install, uncached contract drift (two tasks), strict test types (four tasks)
+and API lint passed. No additional source change or timeout increase was needed.
+This integration follow-up is local evidence, not new Ubuntu CI, independent review
+or whole-workflow acceptance at the final publication revision.
+
+Objective 437's independent test step reran the four focused compiler/harness tests
+(95 deliberately unselected), followed by two complete coverage runs with the same
+pinned local toolchain and explicit Colima target. Each passed all 394 tests with
+zero failures/skips, including real PostgreSQL; API durations were 11.26 and 10.90
+seconds. Uncached contract drift (two tasks), strict test types (four tasks), API
+lint and repository formatting passed. The documentation-only follow-up adds no
+behavioral coverage gap; existing regressions were reused rather than duplicated.
+No defect or timeout reproduced. These are local working-tree checks, not final
+revision CI or Sonar acceptance; the supplied Sonar step reported branch-plan
+access denial, not a quality-gate result.
+
 In an isolated worktree, set `TURBO_CACHE_DIR="$PWD/.turbo/cache"` before workspace
 commands to keep Turbo's cache inside that checkout rather than its shared worktree
 cache.
@@ -403,14 +572,15 @@ OpenAPI route check, bringing the focused suite to 91 cases.
 
 ## Task 11 local Compose checks
 
-| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                 | Scope                                                                        |
-| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------- |
-| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: decimal ports (default, range, leading zeroes, malformed input), host trimming/localhost normalization, absent/empty/whitespace-only host fallback, production cookie/local-secret guards, safe malformed-URL errors, and value-free invalid-host rejection. Real CLI checks prove custom/zero-prefixed ports, normalized hosts, liveness, occupied-port rejection and generic failures. Not authentication implementation.                                                                                                                                                             | Focused runtime suite                                                        |
-| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the documented Watch command, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, new credential/output files excluded during active Watch, persisted ledger across recreation, failed migration blocks API, visible unavailable/ready browser states across database failure/recovery, synthetic context canaries excluded, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
-| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                          | Configuration smoke                                                          |
-| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   | Workspace checks                                                             |
-| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Runs strict typed source/test lint for all five workspaces and root CI scripts; Task 14 replaces the formerly empty graph.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                     | Known-limited workspace command                                              |
-| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                                                                                                    | Workspace tests; requires Docker and Chromium                                |
+| Check                                      | Command                                                                                                 | What it proves                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                    | Scope                                                                        |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------- |
+| Local API runtime boundary                 | `pnpm --filter @mobey/api build && pnpm --filter @mobey/api exec vitest run test/local-runtime.spec.ts` | `apps/api/test/local-runtime.spec.ts`: decimal ports (default, range, leading zeroes, malformed input), host trimming/localhost normalization, absent/empty/whitespace-only host fallback, production cookie/local-secret guards, safe malformed-URL errors, and value-free invalid-host rejection. Real CLI checks prove custom/zero-prefixed ports, normalized hosts, liveness, occupied-port rejection and generic failures. Not authentication implementation.                                                                                                                                                                                                                                                                                                                                                                                | Focused runtime suite                                                        |
+| Compose and production-image browser smoke | `pnpm test:compose`                                                                                     | `tests/e2e/local-compose.spec.ts`: clean source-copy startup through the filtered-source wrapper, API image shared-package prerequisite build, real PostgreSQL apply-once ledger, browser readiness, distinct API/shared version identities and safe correlated problem details through the web proxy, HMR/API restart with unchanged images, atomic populated-directory arrivals for API/web without pre-created host/container parents, excluded descendants plus subsequent edits/deletion, offline initial sync with unchanged images/containers, persisted ledger across recreation, failed migration blocks API, visible unavailable/ready browser states across database failure/recovery, synthetic context canaries and unapproved patch siblings excluded while required patches remain available, non-root runnable production images. | Focused Docker/Chromium integration; not full product E2E or seed acceptance |
+| Filtered-source helper                     | `pnpm test:compose-watch`                                                                               | `scripts/compose-watch.test.mjs`: initial and atomic-arrival filtering for both services, edits/deletes/type transitions, fail-closed symlink/FIFO rejection, subprocess failure/shutdown propagation, null env-file ownership and package-script env-file/non-Watch rejection without consumption or Docker launch; real pnpm default/explicit Watch forwarding, exit propagation/cleanup and env-file rejection with `pnpm dev -- ...`. Raw pnpm env-file flags remain outside that protected boundary. Redaction and staging cleanup; included in `pnpm test:ci-policy`.                                                                                                                                                                                                                                                                       | Unit/subprocess; real Compose wiring is covered by `pnpm test:compose`       |
+| Compose model validation                   | `docker compose --env-file /dev/null config --quiet`                                                    | Resolves the four-service model without implicit root `.env` loading.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                             | Configuration smoke                                                          |
+| Workspace build and types                  | `pnpm build && pnpm type-check`                                                                         | Builds the current packages and validates their existing strict TypeScript projects, including the Compose Playwright suite.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      | Workspace checks                                                             |
+| Workspace lint entrypoint                  | `pnpm lint`                                                                                             | Runs strict typed source/test lint for all five workspaces and root CI scripts; Task 14 replaces the formerly empty graph.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                        | Known-limited workspace command                                              |
+| Uncached local workspace tests             | `pnpm test --env-mode=loose --force`                                                                    | Runs existing package tests plus the runtime and Compose suites, without Turbo cache reuse; local Docker/browser environment variables are explicitly passed through. Does not load `.env`.                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                       | Workspace tests; requires Docker and Chromium                                |
 
 Install dependencies with `pnpm install --frozen-lockfile` using the versions above.
 Install the existing browser dependency before Compose tests. To keep browser
