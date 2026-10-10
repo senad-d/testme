@@ -200,6 +200,53 @@ test.afterAll(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
+test('production API omits unused package-manager launchers and module trees', () => {
+  const inventory = `
+    const { existsSync, readdirSync } = require('node:fs');
+    const { spawnSync } = require('node:child_process');
+    for (const tool of ['npm', 'npx', 'corepack', 'yarn', 'yarnpkg', 'pnpm']) {
+      if (spawnSync('sh', ['-c', 'command -v "$1"', 'sh', tool]).status === 0) {
+        throw new Error('Unused package-manager launcher: ' + tool);
+      }
+    }
+    for (const path of ['/usr/local/lib/node_modules', '/opt']) {
+      if (!existsSync(path)) continue;
+      for (const name of readdirSync(path)) {
+        if (/^(npm|corepack|pnpm|yarn(?:-.*)?)$/.test(name)) {
+          throw new Error('Unused package-manager tree: ' + path + '/' + name);
+        }
+      }
+    }
+  `;
+  expect(() =>
+    docker(['run', '--rm', '--entrypoint', 'node', apiImage, '-e', inventory]),
+  ).not.toThrow();
+  // Negative controls are inert markers in disposable containers, not dependencies.
+  for (const [setup, error] of [
+    ['touch /usr/local/bin/npm; chmod +x /usr/local/bin/npm', /Unused package-manager launcher/],
+    [
+      'mkdir -p /usr/local/lib/node_modules/npm; printf "{}" > /usr/local/lib/node_modules/npm/package.json',
+      /Unused package-manager tree/,
+    ],
+  ] as const) {
+    expect(() =>
+      docker([
+        'run',
+        '--rm',
+        '--user',
+        'root',
+        '--entrypoint',
+        'sh',
+        apiImage,
+        '-ec',
+        `${setup}; exec node -e "$1"`,
+        'sh',
+        inventory,
+      ]),
+    ).toThrow(error);
+  }
+});
+
 test('production-built web reaches the migrated API through same-origin routing', async ({
   page,
 }) => {

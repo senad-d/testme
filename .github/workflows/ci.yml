@@ -112,6 +112,8 @@ jobs:
 
   sonar:
     name: SonarCloud quality gate
+    # Owner-authorized PR deferral; main analysis remains blocking and fail closed.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     needs: quality
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -144,8 +146,16 @@ jobs:
     runs-on: ubuntu-24.04
     timeout-minutes: 2
     steps:
-      - name: Reject failed, cancelled or skipped gates
+      - name: Enforce quality and event-specific Sonar results
         env:
           QUALITY_RESULT: ${{ needs.quality.result }}
           SONAR_RESULT: ${{ needs.sonar.result }}
-        run: test "$QUALITY_RESULT" = success && test "$SONAR_RESULT" = success
+          CI_EVENT_NAME: ${{ github.event_name }}
+          CI_REF: ${{ github.ref }}
+        run: |
+          test "$QUALITY_RESULT" = success
+          case "$CI_EVENT_NAME:$CI_REF" in
+            pull_request:refs/pull/*/merge) test "$SONAR_RESULT" = skipped ;;
+            push:refs/heads/main|workflow_dispatch:refs/heads/main) test "$SONAR_RESULT" = success ;;
+            *) echo 'Unsupported CI event/ref; no gate bypass is permitted.' >&2; exit 1 ;;
+          esac

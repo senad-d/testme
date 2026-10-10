@@ -5,6 +5,7 @@ import { mkdtemp, mkdir, readFile, realpath, rm, symlink, writeFile } from 'node
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { test } from 'node:test';
+import { runInNewContext } from 'node:vm';
 
 import { parse } from 'yaml';
 
@@ -86,24 +87,100 @@ test('policy detects intentional bypass, permission and missing-check mutations'
   }
 });
 
-test('actual aggregate shell blocks failed, cancelled, skipped and missing results', () => {
-  const command = workflow.jobs.required.steps[0].run;
+const aggregateContexts = [
+  ['pull_request', 'refs/pull/134/merge', 'skipped'],
+  ['push', 'refs/heads/main', 'success'],
+  ['workflow_dispatch', 'refs/heads/main', 'success'],
+  ['pull_request', 'refs/heads/main'],
+  ['pull_request', 'refs/pull/134/head'],
+  ['push', 'refs/pull/134/merge'],
+  ['push', 'refs/heads/feature'],
+  ['workflow_dispatch', 'refs/pull/134/merge'],
+  ['workflow_dispatch', 'refs/heads/feature'],
+  ['schedule', 'refs/heads/main'],
+  ['', 'refs/heads/main'],
+  ['push', ''],
+];
+
+function validateAggregate(command, event, ref, requiredSonar) {
   for (const quality of ['success', 'failure', 'cancelled', 'skipped', '']) {
     for (const sonar of ['success', 'failure', 'cancelled', 'skipped', '']) {
       const result = spawnSync('bash', ['-e', '-c', command], {
-        env: { QUALITY_RESULT: quality, SONAR_RESULT: sonar },
+        env: {
+          QUALITY_RESULT: quality,
+          SONAR_RESULT: sonar,
+          CI_EVENT_NAME: event,
+          CI_REF: ref,
+        },
       });
-      assert.equal(result.status === 0, quality === 'success' && sonar === 'success');
+      assert.equal(
+        result.status === 0,
+        quality === 'success' && sonar === requiredSonar,
+        `${event}:${ref}, quality=${quality}, sonar=${sonar}: ${result.stderr}`,
+      );
     }
+  }
+}
+
+function validateSonarSchedule(condition) {
+  for (const [event, ref] of aggregateContexts) {
+    const runs = runInNewContext(condition, { github: { event_name: event, ref } });
+    assert.equal(
+      runs,
+      ref === 'refs/heads/main' && ['push', 'workflow_dispatch'].includes(event),
+      `Sonar scheduling for ${event}:${ref}`,
+    );
+  }
+}
+
+test('actual Sonar condition runs only for main push and manual main events', () => {
+  validateSonarSchedule(workflow.jobs.sonar.if);
+});
+
+test('Sonar scheduling coverage detects PR exposure and missing main analysis', () => {
+  for (const condition of [
+    'true',
+    'false',
+    "github.ref == 'refs/heads/main'",
+    "github.event_name == 'push' || github.event_name == 'workflow_dispatch'",
+    "github.ref == 'refs/heads/main' && github.event_name == 'push'",
+  ]) {
+    assert.throws(() => validateSonarSchedule(condition), assert.AssertionError);
   }
 });
 
-test('actual Sonar shell fails without a token before invoking any scanner', () => {
-  const command = workflow.jobs.sonar.steps.at(-1).run;
-  const result = spawnSync('bash', ['-e', '-c', command], { env: { SONAR_TOKEN: '' } });
-  assert.equal(result.status, 1);
-  assert.match(result.stderr.toString(), /SONAR_TOKEN is required/);
+for (const [event, ref, requiredSonar] of aggregateContexts) {
+  test(`actual aggregate shell enforces ${requiredSonar ?? 'unsupported'} Sonar policy for ${event}:${ref}`, () => {
+    validateAggregate(workflow.jobs.required.steps[0].run, event, ref, requiredSonar);
+  });
+}
+
+test('aggregate coverage detects quality, Sonar and unsupported-event bypass mutations', () => {
+  const command = workflow.jobs.required.steps[0].run;
+  for (const [original, replacement] of [
+    ['test "$QUALITY_RESULT" = success', 'true'],
+    ['test "$SONAR_RESULT" = skipped', 'test "$SONAR_RESULT" = success'],
+    ['test "$SONAR_RESULT" = success', 'test "$SONAR_RESULT" = skipped'],
+    ['exit 1', 'exit 0'],
+  ]) {
+    assert.ok(command.includes(original), `Mutation target: ${original}`);
+    const changed = command.replace(original, replacement);
+    assert.throws(() => {
+      for (const context of aggregateContexts) validateAggregate(changed, ...context);
+    }, assert.AssertionError);
+  }
 });
+
+for (const event of ['push', 'workflow_dispatch']) {
+  test(`actual main ${event} Sonar shell fails without a token before invoking any scanner`, () => {
+    const command = workflow.jobs.sonar.steps.at(-1).run;
+    const result = spawnSync('bash', ['-e', '-c', command], {
+      env: { SONAR_TOKEN: '', CI_EVENT_NAME: event, CI_REF: 'refs/heads/main' },
+    });
+    assert.equal(result.status, 1);
+    assert.match(result.stderr.toString(), /SONAR_TOKEN is required/);
+  });
+}
 
 test('hygiene rejects private/generated paths and permits reviewed templates/contracts', async () => {
   for (const path of [

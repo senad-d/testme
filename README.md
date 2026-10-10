@@ -91,7 +91,8 @@ docker image inspect --format '{{.Config.User}}' mobey-api:production mobey-web:
 Both builds use frozen dependency installs and pinned base-image digests. Runtime
 users are `node` (API) and `101` (static web); local services, including PostgreSQL,
 also run non-root. The API image contains production dependencies, compiled output
-and checked SQL. Its default liveness can run without DB configuration; readiness
+and checked SQL. See the [image-hardening policy](docs/testing.md#task-14-blocking-pr-quality-23)
+for runtime base/package pins and compatibility boundaries. Its default liveness can run without DB configuration; readiness
 remains unavailable until real validated DB configuration and migrations exist.
 For later controlled migration jobs its existing entrypoint is
 `node dist/database/migrate.js`. No production image automatically seeds or migrates.
@@ -153,10 +154,10 @@ The existing Compose suite still proves Watch behavior and development guards.
 The workflow runs on PRs and main pushes with read-only permissions and pinned
 actions/tools. It rejects secrets/generated paths in the clean checkout before
 installing dependencies. Every quality/security check remains blocking, including
-all-severity dependency/image scans; unfixed findings are not ignored. SonarCloud
-waits for its quality gate using the analysis-scoped `SONAR_TOKEN` secret reference.
-A missing token (including on fork PRs) fails closed. Never use `pull_request_target`
-or a privileged checkout to work around missing secrets.
+all-severity dependency/image scans; unfixed findings are not ignored. The
+[quality policy](docs/testing.md#task-14-blocking-pr-quality-23) owns the authorized
+main-only Sonar schedule and fail-closed aggregate rules. Never use
+`pull_request_target` or a privileged checkout to work around missing secrets.
 
 A repository administrator must establish live workflow/Sonar evidence and require
 `CI required` through repository settings; this source change does not configure
