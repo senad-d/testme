@@ -436,6 +436,37 @@ repository formatting passed. The documentation-only follow-up introduces no
 behavioral coverage gap, so no duplicate tests were added. These are local
 working-tree checks, not new CI, clean-checkout or Sonar acceptance evidence.
 
+Objective 436's newly cited failures were independently checked through GitHub's
+run/job logs and repository-file API. Main run
+[37920653332, attempt 1](https://github.com/senad-d/testme/actions/runs/37920653332/attempts/1)
+at `877d3e64498279425033993e35b5896c63539b6a` and PR #134 run
+[38081206197, attempt 1](https://github.com/senad-d/testme/actions/runs/38081206197/attempts/1)
+at `dc6088915276ad8a9860ea959ef595b27cd5b658` both lacked the batching helper.
+Their web-consumer tests timed out at 39,408 and 39,466 ms respectively. These are
+failures of the original compiler strategy, not regressions in #130's correction;
+the latter run's overall success on a later attempt does not erase its first failure.
+
+After integrating main into #130 at `282a744`, the unchanged batched compiler source
+passed the four focused compiler/harness tests, then two complete coverage runs on
+macOS arm64 with Node 24.20.0/pnpm 11.25.0 and the explicit local Colima target above.
+Each complete run passed 172 shared, 36 web and 186 API tests (394 total, no failures
+or skips), including real PostgreSQL; API durations were 11.67 and 11.41 seconds.
+Frozen install, uncached contract drift (two tasks), strict test types (four tasks)
+and API lint passed. No additional source change or timeout increase was needed.
+This integration follow-up is local evidence, not new Ubuntu CI, independent review
+or whole-workflow acceptance at the final publication revision.
+
+Objective 437's independent test step reran the four focused compiler/harness tests
+(95 deliberately unselected), followed by two complete coverage runs with the same
+pinned local toolchain and explicit Colima target. Each passed all 394 tests with
+zero failures/skips, including real PostgreSQL; API durations were 11.26 and 10.90
+seconds. Uncached contract drift (two tasks), strict test types (four tasks), API
+lint and repository formatting passed. The documentation-only follow-up adds no
+behavioral coverage gap; existing regressions were reused rather than duplicated.
+No defect or timeout reproduced. These are local working-tree checks, not final
+revision CI or Sonar acceptance; the supplied Sonar step reported branch-plan
+access denial, not a quality-gate result.
+
 In an isolated worktree, set `TURBO_CACHE_DIR="$PWD/.turbo/cache"` before workspace
 commands to keep Turbo's cache inside that checkout rather than its shared worktree
 cache.
