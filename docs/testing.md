@@ -1,5 +1,11 @@
 # Test check registry
 
+## Gate fixture contract (#137)
+
+| Check              | Command                                                          | Evidence scope                                                                                                                                                                                                                           |
+| ------------------ | ---------------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Gate fixture bytes | `node --test --test-reporter=dot scripts/gate-fixtures.test.mjs` | Requires `fixtures/gate-b.txt` to contain exactly `b` followed by LF (two bytes); rejects changed content, missing newline, CRLF and extra lines. Run with pinned Node 24.20.0. No application or prerequisite #136 behavior is covered. |
+
 ## Incident-prevention publication guard (#62)
 
 `pnpm test:publication` runs the isolated synthetic regressions for
