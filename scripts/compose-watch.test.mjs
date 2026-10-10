@@ -154,6 +154,41 @@ test('mirrors edits, deletes, directory removal, and file/directory transitions'
   assert.throws(staged.sync, /closed/);
 });
 
+test('concurrent source mirrors isolate updates and cleanup between checkouts', (t) => {
+  const first = fixture(t);
+  const second = fixture(t);
+  first.put('apps/api/src/main.ts', 'first checkout');
+  second.put('apps/api/src/main.ts', 'second checkout');
+  const firstMirror = mirror(t, first.root);
+  const secondMirror = mirror(t, second.root);
+  assert.notEqual(firstMirror.directory, secondMirror.directory);
+
+  first.put('apps/api/src/main.ts', 'first updated');
+  firstMirror.sync();
+  assert.equal(
+    readFileSync(join(secondMirror.directory, 'apps/api/src/main.ts'), 'utf8'),
+    'second checkout',
+  );
+  second.put('apps/web/src/only-second.ts', 'second new source');
+  secondMirror.sync();
+  assert.equal(existsSync(join(firstMirror.directory, 'apps/web/src/only-second.ts')), false);
+  assert.equal(
+    readFileSync(join(firstMirror.directory, 'apps/api/src/main.ts'), 'utf8'),
+    'first updated',
+  );
+
+  firstMirror.close();
+  assert.equal(existsSync(firstMirror.directory), false);
+  second.put('apps/api/src/main.ts', 'second still active');
+  secondMirror.sync();
+  assert.equal(
+    readFileSync(join(secondMirror.directory, 'apps/api/src/main.ts'), 'utf8'),
+    'second still active',
+  );
+  secondMirror.close();
+  assert.equal(existsSync(secondMirror.directory), false);
+});
+
 for (const kind of ['file', 'directory', 'ancestor', 'fifo']) {
   test(`fails closed on an eligible ${kind} symlink/unsupported entry without publishing updates`, (t) => {
     const { root, put } = fixture(t);
