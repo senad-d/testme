@@ -1,6 +1,6 @@
 import { execFileSync, spawn, type ChildProcess } from 'node:child_process';
 import { randomUUID } from 'node:crypto';
-import { cp, mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises';
+import { access, cp, mkdir, mkdtemp, readFile, rename, rm, writeFile } from 'node:fs/promises';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
@@ -12,6 +12,92 @@ let directory: string;
 let webUrl: string;
 let watcher: ChildProcess | undefined;
 let watchOutput = '';
+
+// One synthetic inventory exercises build, offline initial-sync and live-Watch denial.
+const excluded = [
+  '.env',
+  '.env.canary',
+  '.pi/canary',
+  '.git/canary',
+  'node_modules/canary',
+  '.DS_Store',
+  '.aws/credentials',
+  '.azure/canary',
+  '.oci/canary',
+  '.ssh/id_ed25519',
+  '.config/canary',
+  '.npmrc',
+  '.netrc',
+  '.pgpass',
+  '.git-credentials',
+  'credentials',
+  'private.pem',
+  'private.key',
+  'private.p12',
+  'private.pfx',
+  'canary.log',
+  'canary.tsbuildinfo',
+  'dist/canary',
+  'coverage/canary',
+  'test-results/canary',
+  'canary.test.ts',
+  'canary.spec.ts',
+  'canary.test.tsx',
+  'canary.spec.tsx',
+  'nested/.env.canary',
+  'nested/.pi/canary',
+  'nested/.git/canary',
+  'nested/.aws/credentials',
+  'nested/node_modules/canary',
+  'nested/coverage/canary',
+] as const;
+
+async function writeCanaries(source: string): Promise<void> {
+  for (const path of excluded) {
+    const destination = join(source, path);
+    await mkdir(join(destination, '..'), { recursive: true });
+    await writeFile(destination, 'synthetic-exclusion-canary');
+  }
+}
+
+function assertSourceExclusions(service: string, prefix = ''): void {
+  expect(
+    compose([
+      'exec',
+      '-T',
+      service,
+      'sh',
+      '-c',
+      `${excluded.map((path) => `if test -e /workspace/apps/${service}/src/${prefix}${path}; then echo included:${path}; fi`).join('; ')}; echo checked`,
+    ]),
+  ).toBe('checked');
+}
+
+function startWatcher(args: string[]): void {
+  watchOutput = '';
+  watcher = spawn(
+    process.execPath,
+    [join(directory, 'scripts/compose-watch.mjs'), ...composeArgs(args).slice(3)],
+    { cwd: directory, stdio: ['ignore', 'pipe', 'pipe'] },
+  );
+  for (const stream of [watcher.stdout, watcher.stderr]) {
+    stream?.on('data', (chunk: Buffer) => {
+      watchOutput += chunk.toString();
+    });
+  }
+}
+
+async function stopWatcher(): Promise<void> {
+  if (watcher?.exitCode === null && watcher.signalCode === null) {
+    const stopped = new Promise<void>((resolve) => {
+      watcher?.once('exit', () => {
+        resolve();
+      });
+    });
+    watcher.kill('SIGINT');
+    await stopped;
+  }
+}
 
 function docker(args: string[], input?: string): string {
   return execFileSync('docker', args, {
@@ -58,6 +144,7 @@ test.beforeAll(async () => {
   const inputs = [
     '.dockerignore',
     'compose.yaml',
+    'scripts/compose-watch.mjs',
     'package.json',
     'pnpm-lock.yaml',
     'pnpm-workspace.yaml',
@@ -105,14 +192,25 @@ test.beforeAll(async () => {
   );
   await mkdir(join(directory, '.pi'));
   await writeFile(join(directory, '.pi', 'canary'), 'synthetic-agent-state-canary');
-  await writeFile(join(directory, 'apps/web/src/.env'), 'nested-env-canary');
-  await mkdir(join(directory, 'apps/web/src/.aws'));
-  await writeFile(join(directory, 'apps/web/src/.aws/credentials'), 'synthetic-credential-canary');
-  await mkdir(join(directory, 'apps/api/src/.ssh'));
-  await writeFile(join(directory, 'apps/api/src/.ssh/id_ed25519'), 'synthetic-key-canary');
-  await mkdir(join(directory, 'apps/web/src/coverage'));
-  await writeFile(join(directory, 'apps/web/src/coverage/canary'), 'synthetic-output-canary');
-  await writeFile(join(directory, 'apps/web/src/private.p12'), 'synthetic-certificate-canary');
+  for (const source of [
+    'apps/api/src',
+    'apps/web/src',
+    'packages/shared/src',
+    'packages/content/src',
+  ]) {
+    await writeCanaries(join(directory, source));
+  }
+  // Unknown paths must remain denied, not just named sensitive files.
+  for (const path of [
+    'unapproved-root/canary.ts',
+    'apps/api/unapproved/canary.ts',
+    'packages/unapproved/canary.ts',
+    'patches/unapproved-canary.ts',
+    'tests/e2e/canary.ts',
+  ]) {
+    await mkdir(join(directory, path, '..'), { recursive: true });
+    await writeFile(join(directory, path), 'synthetic-unapproved-context-canary');
+  }
   await writeFile(
     join(directory, 'ports.yaml'),
     `services:
@@ -124,17 +222,8 @@ test.beforeAll(async () => {
   );
   // Inspect only the inline service model, never Compose's inherited environment dump.
   expect(compose(['config', '--format', 'json'])).not.toContain('host-env-canary');
-  // Exercise the documented up --build --watch lifecycle, not a host dependency install.
-  watcher = spawn('docker', composeArgs(['up', '--build', '--watch']), {
-    cwd: directory,
-    stdio: ['ignore', 'pipe', 'pipe'],
-  });
-  watcher.stdout?.on('data', (chunk: Buffer) => {
-    watchOutput += chunk.toString();
-  });
-  watcher.stderr?.on('data', (chunk: Buffer) => {
-    watchOutput += chunk.toString();
-  });
+  // Exercise the filtered wrapper's up --build --watch lifecycle, not a host dependency install.
+  startWatcher(['up', '--build', '--watch']);
   await expect
     .poll(
       () => {
@@ -175,14 +264,7 @@ test.beforeAll(async () => {
 
 test.afterAll(async () => {
   test.setTimeout(120_000);
-  watcher?.kill('SIGINT');
-  if (watcher?.exitCode === null && watcher.signalCode === null) {
-    await new Promise<void>((resolve) => {
-      watcher?.once('exit', () => {
-        resolve();
-      });
-    });
-  }
+  await stopWatcher();
   if (directory) {
     try {
       compose(['down', '--volumes', '--remove-orphans', '--rmi', 'local']);
@@ -216,6 +298,7 @@ test('clean Compose migrates once and serves browser readiness with non-root ser
       'test ! -e /workspace/apps/web/src/.env && echo clean',
     ]),
   ).toBe('clean');
+  for (const service of ['api', 'web']) assertSourceExclusions(service);
   expect(sql('SELECT count(*) FROM mobey_platform.migrations')).toBe('1');
   expect(
     docker(['inspect', '--format', '{{.State.ExitCode}}', compose(['ps', '-aq', 'migrate'])]),
@@ -335,38 +418,124 @@ test('web HMR and API source restart change responses without rebuilding images'
   }
 });
 
-test('Watch excludes new credentials and generated artifacts while syncing source', async ({
+test('initial sync applies offline source edits to reused images and excludes canaries', async ({
+  page,
+}) => {
+  test.setTimeout(180_000);
+  const apiImage = image('api');
+  const webImage = image('web');
+  const webSource = join(directory, 'apps/web/src/app.tsx');
+  const apiSource = join(directory, 'apps/api/src/app.module.ts');
+  const originalWeb = await readFile(webSource, 'utf8');
+  const originalApi = await readFile(apiSource, 'utf8');
+  const changedWeb = originalWeb.replace('<h1>Mobey</h1>', '<h1>Mobey offline proof</h1>');
+  const changedApi = originalApi.replace("@Get('live')", "@Get('offline-proof')");
+  expect(changedWeb).not.toBe(originalWeb);
+  expect(changedApi).not.toBe(originalApi);
+  await stopWatcher();
+  // Recreate from the existing images before editing: neither build nor creation
+  // can supply the changed sources. Only initial sync can cross this boundary.
+  compose(['up', '-d', '--no-build', '--force-recreate', '--wait', '--wait-timeout', '120']);
+  webUrl = `http://${compose(['port', 'web', '5173'])}`;
+  const containers = ['api', 'web'].map((service) => compose(['ps', '-q', service]));
+  try {
+    await writeFile(webSource, changedWeb);
+    await writeFile(apiSource, changedApi);
+    for (const service of ['api', 'web']) {
+      await writeCanaries(join(directory, 'apps', service, 'src', 'offline'));
+    }
+    expect(compose(['exec', '-T', 'api', 'cat', '/workspace/apps/api/src/app.module.ts'])).toBe(
+      originalApi.trim(),
+    );
+    expect(compose(['exec', '-T', 'web', 'cat', '/workspace/apps/web/src/app.tsx'])).toBe(
+      originalWeb.trim(),
+    );
+    startWatcher(['watch', '--no-up']);
+    await expect.poll(() => watchOutput, { timeout: 30_000 }).toMatch(/Watch enabled/i);
+    for (const [service, path, source] of [
+      ['api', 'app.module.ts', changedApi],
+      ['web', 'app.tsx', changedWeb],
+    ] as const) {
+      await expect
+        .poll(
+          () => compose(['exec', '-T', service, 'cat', `/workspace/apps/${service}/src/${path}`]),
+          { timeout: 30_000 },
+        )
+        .toBe(source.trim());
+      assertSourceExclusions(service, 'offline/');
+    }
+    expect(['api', 'web'].map((service) => compose(['ps', '-q', service]))).toEqual(containers);
+    expect(image('api')).toBe(apiImage);
+    expect(image('web')).toBe(webImage);
+    // Compose initial sync copies files; unlike a live sync+restart event it
+    // does not recompile an already-running API. Restart only after byte proof.
+    compose(['restart', 'api']);
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await fetch(`${webUrl}/api/v1/health/offline-proof`)).status;
+          } catch {
+            return 0;
+          }
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(200);
+    await page.goto(webUrl);
+    await expect(page.getByRole('heading', { name: 'Mobey offline proof' })).toBeVisible();
+  } finally {
+    await writeFile(webSource, originalWeb);
+    await writeFile(apiSource, originalApi);
+    for (const service of ['api', 'web']) {
+      await rm(join(directory, 'apps', service, 'src', 'offline'), {
+        recursive: true,
+        force: true,
+      });
+    }
+    await expect
+      .poll(
+        async () => {
+          try {
+            return (await fetch(`${webUrl}/api/v1/health/live`)).status;
+          } catch {
+            return 0;
+          }
+        },
+        { timeout: 60_000 },
+      )
+      .toBe(200);
+  }
+});
+
+test('Watch filters atomic populated-directory arrivals for API and web without rebuilding', async ({
   page,
 }) => {
   test.setTimeout(120_000);
-  const excluded = [
-    '.env.watch-canary',
-    '.pi/canary',
-    '.aws/credentials',
-    '.ssh/id_ed25519',
-    '.npmrc',
-    '.netrc',
-    '.pgpass',
-    '.git-credentials',
-    'private.key',
-    'private.pfx',
-    'dist/canary',
-    'coverage/watch-canary',
-    'test-results/canary',
-    'watch-canary.spec.ts',
-  ];
   const marker = 'watch-safe-source.ts';
+  const images = ['api', 'web'].map((service) => image(service));
+  const containers = ['api', 'web'].map((service) => compose(['ps', '-q', service]));
   try {
     for (const service of ['api', 'web']) {
-      const source = join(directory, 'apps', service, 'src');
-      for (const path of excluded) {
-        const destination = join(source, path);
-        await mkdir(join(destination, '..'), { recursive: true });
-        await writeFile(destination, 'synthetic-watch-exclusion-canary');
-      }
-      // A real source edit is a synchronization barrier: do not pass merely because Watch
-      // was idle, disconnected or too slow to process the excluded files.
-      await writeFile(join(source, marker), 'export const watchProof = true;\n');
+      const source = join(directory, 'apps', service, 'src', 'live');
+      // Populate OUTSIDE the watched tree, then atomically move the entire new
+      // directory in. Neither host nor container destination parent exists.
+      await expect(access(source)).rejects.toMatchObject({ code: 'ENOENT' });
+      expect(
+        compose([
+          'exec',
+          '-T',
+          service,
+          'sh',
+          '-c',
+          `test ! -e /workspace/apps/${service}/src/live && echo absent`,
+        ]),
+      ).toBe('absent');
+      const arriving = await mkdtemp(join(directory, 'arrival-'));
+      await writeCanaries(arriving);
+      await writeFile(join(arriving, marker), 'export const watchProof = true;\n');
+      await rename(arriving, source);
+      // Positive arrival is a barrier: an idle/disconnected Watch cannot pass.
       await expect
         .poll(
           () => {
@@ -376,7 +545,7 @@ test('Watch excludes new credentials and generated artifacts while syncing sourc
                 '-T',
                 service,
                 'cat',
-                `/workspace/apps/${service}/src/${marker}`,
+                `/workspace/apps/${service}/src/live/${marker}`,
               ]);
             } catch {
               return '';
@@ -385,19 +554,51 @@ test('Watch excludes new credentials and generated artifacts while syncing sourc
           { timeout: 60_000 },
         )
         .toBe('export const watchProof = true;');
-      for (const path of excluded) {
-        expect(
-          compose([
-            'exec',
-            '-T',
-            service,
-            'sh',
-            '-c',
-            `test ! -e /workspace/apps/${service}/src/${path} && echo excluded`,
-          ]),
-        ).toBe('excluded');
-      }
+      assertSourceExclusions(service, 'live/');
+      // Also prove subsequent nested edits and deletion propagate after arrival.
+      await writeFile(join(source, 'nested', 'safe.ts'), 'export const nestedProof = true;\n');
+      await expect
+        .poll(
+          () => {
+            try {
+              return compose([
+                'exec',
+                '-T',
+                service,
+                'cat',
+                `/workspace/apps/${service}/src/live/nested/safe.ts`,
+              ]);
+            } catch {
+              return '';
+            }
+          },
+          { timeout: 60_000 },
+        )
+        .toBe('export const nestedProof = true;');
+      assertSourceExclusions(service, 'live/');
+      await rm(join(source, marker));
+      await expect
+        .poll(
+          () => {
+            try {
+              return compose([
+                'exec',
+                '-T',
+                service,
+                'sh',
+                '-c',
+                `test ! -e /workspace/apps/${service}/src/live/${marker} && echo deleted`,
+              ]);
+            } catch {
+              return '';
+            }
+          },
+          { timeout: 60_000 },
+        )
+        .toBe('deleted');
     }
+    expect(['api', 'web'].map((service) => image(service))).toEqual(images);
+    expect(['api', 'web'].map((service) => compose(['ps', '-q', service]))).toEqual(containers);
     await expect
       .poll(
         async () => {
@@ -416,10 +617,7 @@ test('Watch excludes new credentials and generated artifacts while syncing sourc
     );
   } finally {
     for (const service of ['api', 'web']) {
-      const source = join(directory, 'apps', service, 'src');
-      for (const path of [...excluded, marker]) {
-        await rm(join(source, path), { force: true });
-      }
+      await rm(join(directory, 'apps', service, 'src', 'live'), { recursive: true, force: true });
     }
   }
 });
@@ -428,6 +626,11 @@ test('database survives recreation, failed migrations block API startup, and bro
   page,
 }) => {
   test.setTimeout(180_000);
+  // Drain/stop Watch before container recreation: queued source cleanup events
+  // must not race the deliberately failed migration by restarting the API.
+  await stopWatcher();
+  compose(['up', '-d', '--no-build', '--wait', '--wait-timeout', '120']);
+  webUrl = `http://${compose(['port', 'web', '5173'])}`;
   const checksum = sql('SELECT checksum FROM mobey_platform.migrations WHERE position = 1');
   const appliedAt = sql(
     'SELECT applied_at::text FROM mobey_platform.migrations WHERE position = 1',
@@ -475,9 +678,50 @@ test('build context excludes canaries and production stages are non-root and run
     ['build', '-t', `${project}-context`, '-f', '-', '.'],
     `FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e
 COPY . /context
-RUN test ! -e /context/.env && test ! -e /context/.pi && test ! -e /context/apps/web/src/.env && test ! -e /context/ports.yaml \\
-    && test ! -e /context/apps/web/src/.aws && test ! -e /context/apps/api/src/.ssh \\
-    && test ! -e /context/apps/web/src/coverage && test ! -e /context/apps/web/src/private.p12
+RUN ${[
+      ...[
+        '.env',
+        '.pi',
+        'ports.yaml',
+        'compose.yaml',
+        'unapproved-root/canary.ts',
+        'apps/api/unapproved/canary.ts',
+        'packages/unapproved/canary.ts',
+        'patches/unapproved-canary.ts',
+        'tests/e2e/canary.ts',
+      ],
+      ...['apps/api/src', 'apps/web/src', 'packages/shared/src', 'packages/content/src'].flatMap(
+        (source) => excluded.map((path) => `${source}/${path}`),
+      ),
+    ]
+      .map((path) => `test ! -e /context/${path}`)
+      .join(' && ')}
+RUN ${[
+      'package.json',
+      'pnpm-lock.yaml',
+      'pnpm-workspace.yaml',
+      'tsconfig.base.json',
+      'apps/api/package.json',
+      'apps/api/tsconfig.json',
+      'apps/api/src/app.module.ts',
+      'apps/api/src/database/migrations/0001_platform.sql',
+      'apps/web/package.json',
+      'apps/web/tsconfig.json',
+      'apps/web/src/app.tsx',
+      'apps/web/vite.config.ts',
+      'apps/web/index.html',
+      'packages/shared/package.json',
+      'packages/shared/tsconfig.json',
+      'packages/shared/src/index.ts',
+      'packages/shared/src/generated/api.ts',
+      'packages/content/package.json',
+      'packages/content/tsconfig.json',
+      'packages/content/src/index.ts',
+      'patches/drizzle-orm@0.45.2.patch',
+      'tests/e2e/package.json',
+    ]
+      .map((path) => `test -f /context/${path}`)
+      .join(' && ')}
 `,
   );
   for (const service of ['api', 'web']) {

@@ -17,6 +17,38 @@ x-api-environment: &api-environment
   SESSION_TOKEN_SECRET: mobey-development-only-session-token
   COOKIE_MODE: localhost-development
 
+# Compose's * build-context allowlist does not supply Watch deny rules.
+# Defense in depth: scripts/compose-watch.mjs filters descendants BEFORE Watch
+# sees directory events. Direct Watch uses a deliberately absent fallback path.
+# Keep these and the helper's deny policy aligned with .dockerignore.
+x-source-watch-ignore: &source-watch-ignore
+  - '**/.env*'
+  - '**/.pi'
+  - '**/.git'
+  - '**/node_modules'
+  - '**/.DS_Store'
+  - '**/*.test.*'
+  - '**/*.spec.*'
+  - '**/.aws'
+  - '**/.azure'
+  - '**/.oci'
+  - '**/.ssh'
+  - '**/.config'
+  - '**/.npmrc'
+  - '**/.netrc'
+  - '**/.pgpass'
+  - '**/.git-credentials'
+  - '**/credentials'
+  - '**/*.pem'
+  - '**/*.key'
+  - '**/*.p12'
+  - '**/*.pfx'
+  - '**/*.log'
+  - '**/*.tsbuildinfo'
+  - '**/dist'
+  - '**/coverage'
+  - '**/test-results'
+
 services:
   db:
     # Match Task 12's tested local PostgreSQL; not an OQ-13 production sizing decision.
@@ -77,10 +109,10 @@ services:
     develop:
       watch:
         - action: sync+restart
-          path: ./apps/api/src
+          path: ${MOBEY_WATCH_SOURCE:-./node_modules/.compose-watch-uninitialized}/apps/api/src
           target: /workspace/apps/api/src
-          initial_sync: true
-          ignore: ['**/.env*', '**/.pi/**', '**/*.pem', '**/*.key', '**/*.test.ts', '**/*.spec.ts']
+          x-initialSync: true
+          ignore: *source-watch-ignore
 
   web:
     build:
@@ -110,15 +142,15 @@ services:
     develop:
       watch:
         - action: sync
-          path: ./apps/web/src
+          path: ${MOBEY_WATCH_SOURCE:-./node_modules/.compose-watch-uninitialized}/apps/web/src
           target: /workspace/apps/web/src
-          initial_sync: true
-          ignore: ['**/.env*', '**/.pi/**', '**/*.pem', '**/*.key', '**/*.test.*', '**/*.spec.*']
+          x-initialSync: true
+          ignore: *source-watch-ignore
         - action: sync+restart
-          path: ./apps/web/vite.config.ts
+          path: ${MOBEY_WATCH_SOURCE:-./node_modules/.compose-watch-uninitialized}/apps/web/vite.config.ts
           target: /workspace/apps/web/vite.config.ts
         - action: sync
-          path: ./apps/web/index.html
+          path: ${MOBEY_WATCH_SOURCE:-./node_modules/.compose-watch-uninitialized}/apps/web/index.html
           target: /workspace/apps/web/index.html
 
 volumes:

@@ -17,14 +17,15 @@
     "yaml": "2.9.0"
   },
   "scripts": {
-    "dev": "docker compose --env-file /dev/null up --build --watch",
+    "dev": "node -- scripts/compose-watch.mjs",
     "dev:down": "docker compose --env-file /dev/null down",
     "test:compose": "pnpm --filter @mobey/e2e exec playwright test local-compose.spec.ts --workers=1",
     "build": "turbo run build",
     "type-check": "turbo run type-check",
     "format:check": "prettier --check .",
     "lint": "eslint eslint.config.mjs scripts --max-warnings=0 && turbo run lint",
-    "test:ci-policy": "node --test scripts/ci-policy.test.mjs scripts/publication-preflight.test.mjs",
+    "test:ci-policy": "node --test scripts/ci-policy.test.mjs scripts/publication-preflight.test.mjs scripts/compose-watch.test.mjs",
+    "test:compose-watch": "node --test scripts/compose-watch.test.mjs",
     "test:publication": "node --test scripts/publication-preflight.test.mjs",
     "publication:preflight": "node scripts/publication-preflight.mjs preflight",
     "publication:verify": "node scripts/publication-preflight.mjs verify",
