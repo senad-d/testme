@@ -369,6 +369,52 @@ were restored. Strict test types, API typed lint, formatting and contract drift 
 passed. This is local working-tree evidence, not repeated Ubuntu CI or committed-revision
 acceptance; the new test additions also require delivery review.
 
+### Delivery follow-up (#130 / PR #131, 2026-10-10)
+
+The committed compiler source at `e5dc29b3284d14ef9f715960161ef0fc4650439a`
+now has repeated complete coverage evidence on the pinned GitHub runner. CI run
+[37944711923, attempt 1](https://github.com/senad-d/testme/actions/runs/37944711923/attempts/1)
+and [attempt 2](https://github.com/senad-d/testme/actions/runs/37944711923/attempts/2)
+each checked out the same PR merge `428369b` (that feature commit against base
+`877d3e64498279425033993e35b5896c63539b6a`). Both used `ubuntu-24.04`,
+Node 24.20.0, pnpm 11.25.0 and the workflow's verified runner-local Docker socket
+`unix:///var/run/docker.sock`. Each complete `pnpm test:coverage` run passed
+172 shared, 36 web and 186 API tests (394 total, zero failed/skipped), including
+real PostgreSQL and both batching-harness regressions. No compiler assertion,
+strictness policy, fixture or timeout changed during this follow-up.
+
+| CI attempt | API suite duration | Generated-file compiler test | Web-consumer compiler test |
+| ---------- | ------------------ | ---------------------------- | -------------------------- |
+| 1          | 30.92 s            | 6,655 ms                     | 7,684 ms                   |
+| 2          | 30.97 s            | 6,472 ms                     | 7,987 ms                   |
+
+Both attempts also passed formatting, typed lint, source/test types and generated
+contract drift. **Neither complete workflow passed:** the later Compose test failed
+because its runner rejected `services.api.develop.watch.0.initial_sync`. That
+pre-existing Compose surface belongs to #127 / PR #134, not this two-file compiler
+correction. Downstream security/image checks and Sonar were skipped, and `CI required`
+failed closed. These coverage results must not be represented as whole-CI acceptance,
+Sonar approval or permission to merge; #23 retains whole-CI acceptance ownership.
+
+Recovery in the prepared linked worktree also ran the committed compiler source twice
+with Node 24.20.0/pnpm 11.25.0 and the explicit local Colima Docker target above:
+394 tests passed each time, with no failures/skips; API durations were 11.67 and
+11.54 seconds. Uncached contract drift, strict test types and API lint passed.
+The CI evidence supersedes the repeated-Ubuntu and committed-compiler-source gaps
+in the historical local reports above. Independent review of the final harness
+regressions, publication of this documentation update and checks at the resulting
+PR revision remain delivery gates; this follow-up did not modify compiler source.
+
+Independent follow-up test-step verification used Node 24.20.0/pnpm 11.25.0 and
+that explicit local Colima Docker target in the prepared worktree. The four focused
+compiler/harness tests passed (95 other tests deliberately unselected), followed
+by two complete coverage runs: each passed 172 shared, 36 web and 186 API tests
+(394 total, zero failed/skipped), with API durations 12.88 and 10.76 seconds.
+Uncached contract drift (two tasks), strict test types (four tasks), API lint and
+repository formatting passed. The documentation-only follow-up introduces no
+behavioral coverage gap, so no duplicate tests were added. These are local
+working-tree checks, not new CI, clean-checkout or Sonar acceptance evidence.
+
 In an isolated worktree, set `TURBO_CACHE_DIR="$PWD/.turbo/cache"` before workspace
 commands to keep Turbo's cache inside that checkout rather than its shared worktree
 cache.
