@@ -1,5 +1,13 @@
 # Test check registry
 
+## Mission demo slug helper (#188)
+
+`node --test --test-reporter=dot mission-demo/*.test.mjs` runs the dependency-free
+slug normalization unit tests with pinned Node 24.20.0.
+`mission-demo/slug.test.mjs` covers lowercase, separator collapse, edge trimming,
+digits, empty inputs, all ASCII character boundaries and non-ASCII separators.
+This standalone suite is not part of the root test or coverage scripts.
+
 ## Incident-prevention publication guard (#62)
 
 `pnpm test:publication` runs the isolated synthetic regressions for
