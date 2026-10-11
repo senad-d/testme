@@ -1,5 +1,14 @@
 # Test check registry
 
+## Standalone mission demo slug helper (#184)
+
+| Check                        | Command                                                   | Evidence scope                                                                                                                                                                                  |
+| ---------------------------- | --------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slug helper unit regressions | `node --test --test-reporter=dot mission-demo/*.test.mjs` | Lowercasing, ASCII letter/digit preservation, separator collapse, boundary trimming, empty inputs, already-valid slugs, non-ASCII/control separators and punctuation at ASCII range boundaries. |
+
+Run with the repository-pinned Node toolchain. This dependency-free demo suite is
+standalone; workspace test/coverage commands do not select it.
+
 ## Incident-prevention publication guard (#62)
 
 `pnpm test:publication` runs the isolated synthetic regressions for
