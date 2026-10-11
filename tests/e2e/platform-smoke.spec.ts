@@ -260,7 +260,7 @@ test('production-built web reaches the migrated API through same-origin routing'
   expect(response.status()).toBe(200);
   const body: unknown = await response.json();
   expect(body).toEqual({ status: 'ok' });
-  await expect(page.getByRole('heading', { name: 'Mobey', exact: true })).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Mobey demo', exact: true })).toBeVisible();
   await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
     'API readiness: ready',
   );

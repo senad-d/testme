@@ -96,7 +96,7 @@ export function App() {
 
   return (
     <main>
-      <h1>Mobey</h1>
+      <h1>Mobey demo</h1>
       <p>Build: {buildVersion}</p>
       <p role="status" aria-live="polite">
         API: {apiVersion}

@@ -377,7 +377,7 @@ test('web HMR and API source restart change responses without rebuilding images'
     await expect(page.getByRole('status').filter({ hasText: /^API readiness:/ })).toHaveText(
       'API readiness: ready',
     );
-    const changedWeb = originalWeb.replace('<h1>Mobey</h1>', '<h1>Mobey reload proof</h1>');
+    const changedWeb = originalWeb.replace('<h1>Mobey demo</h1>', '<h1>Mobey reload proof</h1>');
     expect(changedWeb, 'HMR fixture must change the visible heading').not.toBe(originalWeb);
     await writeFile(webSource, changedWeb);
     await expect(page.getByRole('heading', { name: 'Mobey reload proof' })).toBeVisible({
@@ -428,7 +428,7 @@ test('initial sync applies offline source edits to reused images and excludes ca
   const apiSource = join(directory, 'apps/api/src/app.module.ts');
   const originalWeb = await readFile(webSource, 'utf8');
   const originalApi = await readFile(apiSource, 'utf8');
-  const changedWeb = originalWeb.replace('<h1>Mobey</h1>', '<h1>Mobey offline proof</h1>');
+  const changedWeb = originalWeb.replace('<h1>Mobey demo</h1>', '<h1>Mobey offline proof</h1>');
   const changedApi = originalApi.replace("@Get('live')", "@Get('offline-proof')");
   expect(changedWeb).not.toBe(originalWeb);
   expect(changedApi).not.toBe(originalApi);

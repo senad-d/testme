@@ -57,6 +57,31 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it('keeps the single demo heading visible while both API requests are pending or failed', async () => {
+  let reject!: (reason: unknown) => void;
+  const pending = new Promise<Response>((_resolve, rejectRequest) => {
+    reject = rejectRequest;
+  });
+  mockEndpoints({
+    '/api/v1/health/ready': () => pending,
+    '/api/v1/version': () => pending,
+  });
+  await renderApp();
+  expect(container.querySelectorAll('h1')).toHaveLength(1);
+  expect(container.querySelector('h1')?.textContent).toBe('Mobey demo');
+  expect(statusParagraph('API:')?.textContent).toBe('API: checking');
+  expect(statusParagraph('API readiness:')?.textContent).toBe('API readiness: checking');
+
+  await act(async () => {
+    reject(new Error('Synthetic API outage'));
+    await pending.catch(() => undefined);
+  });
+  expect(container.querySelectorAll('h1')).toHaveLength(1);
+  expect(container.querySelector('h1')?.textContent).toBe('Mobey demo');
+  expect(statusParagraph('API:')?.textContent).toBe('API: unavailable');
+  expect(statusParagraph('API readiness:')?.textContent).toBe('API readiness: unavailable');
+});
+
 it.each([
   [200, '{"status":"ok"}', 'ready'],
   [503, '{"status":"unavailable"}', 'unavailable'],
@@ -72,7 +97,8 @@ it.each([
     '/api/v1/health/ready': () => Promise.resolve(new Response(body, { status })),
   });
   await renderApp();
-  expect(container.querySelector('h1')?.textContent).toBe('Mobey');
+  expect(container.querySelectorAll('h1')).toHaveLength(1);
+  expect(container.querySelector('h1')?.textContent).toBe('Mobey demo');
   expect(container.textContent).toContain('Build: 0.0.0');
   expect(statusParagraph('API readiness:')?.textContent).toBe(`API readiness: ${readiness}`);
   const readinessCall = fetchMock.mock.calls.find(([url]) => url === '/api/v1/health/ready');
