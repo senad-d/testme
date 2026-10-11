@@ -1,5 +1,11 @@
 # Test check registry
 
+## Mission demo slug utility (#181)
+
+| Check                 | Command                                  | Evidence scope                                                                                                                                                                                                                                                                                                 |
+| --------------------- | ---------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Slug unit regressions | `node --test mission-demo/slug.test.mjs` | Dependency-free `node:test` coverage for lowercasing, ASCII letters/digits (including single-character boundaries), separator-run collapse, edge trimming, empty/separator-only input, normalized-slug stability, and internal line breaks/Unicode symbols. Use pinned Node 24.20.0; no installation required. |
+
 ## Incident-prevention publication guard (#62)
 
 `pnpm test:publication` runs the isolated synthetic regressions for
