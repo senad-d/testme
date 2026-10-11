@@ -1,5 +1,16 @@
 # Test check registry
 
+## Dependency-free demo slug utility (#179)
+
+`node --test --test-reporter=dot mission-demo/slug.test.mjs` checks the named
+`slugify` export: ASCII lowercasing/alphanumeric boundaries, separator collapse,
+end trimming, empty results and non-ASCII separators. Uses pinned Node 24.20.0;
+no installation required.
+
+Use the explicit test-file path: `node --test mission-demo/` does not discover
+this suite on the pinned runtime. This standalone demo check is not part of the
+workspace coverage or Sonar quality-gate evidence.
+
 ## Incident-prevention publication guard (#62)
 
 `pnpm test:publication` runs the isolated synthetic regressions for
