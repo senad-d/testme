@@ -1,5 +1,15 @@
 # Test check registry
 
+## Dependency-free demo slug utility (#190)
+
+| Check                | Command                               | Evidence scope                                                        |
+| -------------------- | ------------------------------------- | --------------------------------------------------------------------- |
+| Demo slug unit tests | `node --test mission-demo/*.test.mjs` | ASCII normalization, boundaries, Unicode separators and empty inputs. |
+
+Use the repository-pinned Node runtime; no dependencies or browser/database are
+required. This standalone demo suite is not included in workspace or CI tests.
+A future pipeline job needs the pinned Node runtime and the command above only.
+
 ## Incident-prevention publication guard (#62)
 
 `pnpm test:publication` runs the isolated synthetic regressions for
