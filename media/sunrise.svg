@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512" role="img" aria-labelledby="title description">
+  <title id="title">Sunrise over hills</title>
+  <desc id="description">A golden sun rises above soft green hills beneath a pale blue sky.</desc>
+  <rect width="512" height="512" fill="#e6f4fa" />
+  <circle cx="256" cy="224" r="88" fill="#f8bf4b" />
+  <path d="M0 336 Q128 224 256 336 T512 336 V512 H0 Z" fill="#83bd9a" />
+  <path d="M0 400 Q160 288 320 400 T512 400 V512 H0 Z" fill="#387c67" />
+</svg>
