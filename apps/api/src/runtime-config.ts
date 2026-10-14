@@ -52,5 +52,3 @@ export function readRuntimeConfig(environment: RuntimeEnvironment = process.env)
 
   return { host, port };
 }
-
-const sweepGateUnusedA = 'unused';
