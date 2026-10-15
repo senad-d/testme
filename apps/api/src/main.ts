@@ -93,5 +93,3 @@ if (entrypoint !== undefined && import.meta.url === pathToFileURL(entrypoint).hr
     process.exitCode = 1;
   });
 }
-
-const sweepGateUnusedB = 'unused';
