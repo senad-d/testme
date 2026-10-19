@@ -165,6 +165,11 @@ project/volume, random loopback port and a disposable source copy. Its test-only
 Nginx proxy joins the unchanged production-built SPA to the migrated API; the API
 uses `NODE_ENV=test` solely for synthetic local PostgreSQL, not deployed TLS proof.
 The existing Compose suite still proves Watch behavior and development guards.
+For isolated web runtime/package diagnosis, run
+`pnpm exec node --test --test-reporter=dot scripts/web-runtime.test.mjs` with local
+Docker, Trivy and a pre-provisioned vulnerability database. This scans the runtime
+without SPA assets using the cached database; it does not replace the full-image
+CI scan or browser checks. See the [check registry](docs/testing.md) for evidence.
 
 The workflow runs on PRs and main pushes with read-only permissions and pinned
 actions/tools. It rejects secrets/generated paths in the clean checkout before
