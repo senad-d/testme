@@ -93,9 +93,34 @@ The production dependency graph, compiled API and checked SQL remain intact.
 This musl runtime is suitable only while deployed dependencies remain compatible;
 new native addons require explicit build/runtime ABI verification. The web runtime
 uses digest-pinned unprivileged Nginx with exact vulnerable-library updates and
-restores UID 101 after installation. Package pins fail closed if unavailable;
-refresh them through reviewed changes, never an unpinned `apk upgrade` or scanner
-exception. All-severity, including unfixed, image scanning remains blocking.
+restores UID 101 after installation. PR #204 refreshes that runtime to Nginx
+1.30.6 on Alpine 3.24 with libexpat 2.9.0 and the matching libuuid package:
+Alpine 3.23 could install only vulnerable libexpat 2.7.5, not the required patched
+version. The existing production-image E2E builds exercise package resolution;
+the blocking image scan validates the complete runtime.
+Package pins fail closed if unavailable; refresh them through reviewed changes,
+never an unpinned `apk upgrade` or scanner exception. All-severity, including
+unfixed, image scanning remains blocking.
+
+| Check                          | Command                                                                  | Evidence scope                                                                                                                                                                                                                                                                                                                                                                           |
+| ------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Focused web runtime regression | `pnpm exec node --test --test-reporter=dot scripts/web-runtime.test.mjs` | Builds the Dockerfile's production runtime without SPA assets, verifies non-root execution, starts the unchanged entrypoint/config until the production HEALTHCHECK passes, and scans all severities including unfixed findings. Requires local Docker, Trivy and a pre-provisioned vulnerability DB; uses that cached DB without refreshing it. Does not replace full image/E2E checks. |
+
+Objective 6 follow-up verification: the focused runtime regression reproduced
+22 libexpat vulnerabilities with the old `2.7.5-r0` selection, then passed with
+the refreshed runtime and unchanged security assertions. Both full production
+images built successfully; Trivy 0.75.0 with the 2026-10-19 database reported zero
+vulnerabilities in each across all severities, without excluding unfixed findings.
+Both production platform smoke tests passed, including real-browser same-origin
+readiness against the migrated synthetic PostgreSQL/API stack. These are local
+working-tree results, not a passing GitHub check or release-readiness claim.
+
+Independent follow-up coverage also verifies that the default Nginx process stays
+running and becomes healthy without the platform smoke's test-only proxy config.
+The focused runtime regression and both production platform tests passed with
+Node 24.20.0 / pnpm 11.25.0. A disposable negative control replacing the runtime
+entrypoint with `/bin/false` failed the new running-process assertion as expected;
+the control and its container/image were removed.
 
 Sonar includes actual TypeScript web/API/shared/content/E2E tests, excludes generated,
 vendor, build and Terraform state/plan output, and imports normalized LCOV.

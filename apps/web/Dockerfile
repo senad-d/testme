@@ -1,5 +1,6 @@
 # syntax=docker/dockerfile:1
-FROM node:24.20.0-bookworm-slim@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS dependencies
+# Node 24.20.0 bookworm-slim; the immutable digest selects the image.
+FROM node@sha256:ba849c60be29959425b8734d57b8b4b7d56f98edd9504c9af091d5281095a71e AS dependencies
 WORKDIR /workspace
 RUN npm install --global pnpm@11.25.0
 COPY package.json pnpm-lock.yaml pnpm-workspace.yaml tsconfig.base.json ./
@@ -24,14 +25,15 @@ FROM dependencies AS build
 RUN pnpm --filter @mobey/web build
 
 # Static asset evidence only; AWS/CloudFront API routing belongs to later tasks.
-FROM nginxinc/nginx-unprivileged:1.30.2-alpine@sha256:de3e40ec8b7debd7194fc798d4bbfb102c7f8b012b2c73032816b5f72393acdd AS production
-# The upstream runtime still carries older libraries. Pin every security update;
+# Nginx unprivileged 1.30.6-alpine; the immutable digest selects the image.
+FROM nginxinc/nginx-unprivileged@sha256:f5116ed4606f3eb015dd4a8e28cb9b351476dc0ad4bc6e9f93b19cec130cdf03 AS production
+# Alpine 3.24 supplies patched libexpat; pin the remaining security updates and
 # retain its unprivileged configuration and restore its runtime user below.
 USER root
 RUN apk add --no-cache \
     c-ares=1.34.8-r0 curl=8.22.0-r0 libcurl=8.22.0-r0 \
-    libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 libexpat=2.8.5-r0 \
-    libpng=1.6.59-r0 libuuid=2.41.6-r1 pcre2=10.49-r0 \
+    libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 libexpat=2.9.0-r0 \
+    libpng=1.6.59-r0 libuuid=2.42.3-r1 pcre2=10.49-r0 \
     tiff=4.7.2-r0 zlib=1.3.2-r1
 COPY --from=build /workspace/apps/web/dist/ /usr/share/nginx/html/
 USER 101
