@@ -40,7 +40,22 @@ readiness rejects unapplied migrations rather than applying them inside the API.
 Only the documented source paths are synchronized, not the entire checkout.
 
 The root `pnpm dev` alias runs the same command (requires Node **24.20.0** and pnpm
-**11.25.0**). The database volume persists across normal shutdown/recreation:
+**11.25.0**).
+
+### Wrapper executable trust policy
+
+The Node wrapper selects the first executable Docker installation from this fixed
+list, in order: `/usr/bin/docker`, `/usr/local/bin/docker`, then
+`/opt/homebrew/bin/docker`. These must be trusted, administrator-managed
+installations (including trusted Docker Desktop/Homebrew symlinks). It never
+searches `PATH`, the checkout or environment-provided executable overrides.
+Missing locations are skipped; permission errors or no executable installation
+fail closed, without falling back to `PATH`. Install Docker at one of these
+locations before running the wrapper. Docker contexts and socket settings still
+work normally; they do not select the executable. The shell's direct `docker`
+commands above are outside this wrapper policy.
+
+The database volume persists across normal shutdown/recreation:
 
 ```sh
 docker compose --env-file /dev/null down

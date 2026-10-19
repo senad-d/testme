@@ -11,13 +11,15 @@ import {
   symlinkSync,
   writeFileSync,
 } from 'node:fs';
+import fs from 'node:fs';
+import { syncBuiltinESMExports } from 'node:module';
 import { tmpdir } from 'node:os';
 import { dirname, join } from 'node:path';
 import { setTimeout as delay } from 'node:timers/promises';
-import { fileURLToPath } from 'node:url';
+import { fileURLToPath, pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 
-import { createSourceMirror, sourceNameAllowed } from './compose-watch.mjs';
+import { createSourceMirror, dockerExecutable, sourceNameAllowed } from './compose-watch.mjs';
 
 const helper = fileURLToPath(new URL('./compose-watch.mjs', import.meta.url));
 const denied = [
@@ -154,6 +156,113 @@ test('mirrors edits, deletes, directory removal, and file/directory transitions'
   assert.throws(staged.sync, /closed/);
 });
 
+test('missing initial source fails closed rather than starting an empty mirror', (t) => {
+  const { root } = fixture(t);
+  rmSync(join(root, 'apps/api/src'), { recursive: true });
+  assert.throws(() => createSourceMirror(root), { code: 'ENOENT' });
+});
+
+test('a directory removed during a scan does not stop Watch or publish a partial snapshot', (t) => {
+  const { root, put } = fixture(t);
+  put('apps/api/src/offline/nested/source.ts');
+  const staged = mirror(t, root);
+  put('apps/api/src/main.ts', 'restored source');
+  const originalReadDirectory = fs.readdirSync;
+  // Deterministically interleave the same recursive deletion used by the
+  // offline-sync E2E cleanup after enumeration, before lstat/open of its child.
+  t.mock.method(fs, 'readdirSync', (path, ...args) => {
+    const entries = originalReadDirectory(path, ...args);
+    if (path === join(root, 'apps/api/src/offline')) {
+      rmSync(path, { recursive: true });
+    }
+    return entries;
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.doesNotThrow(staged.sync);
+    assert.equal(
+      readFileSync(join(staged.directory, 'apps/api/src/main.ts'), 'utf8'),
+      'export {};',
+    );
+    assert.equal(existsSync(join(staged.directory, 'apps/api/src/offline/nested/source.ts')), true);
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+  staged.sync();
+  assert.equal(
+    readFileSync(join(staged.directory, 'apps/api/src/main.ts'), 'utf8'),
+    'restored source',
+  );
+  assert.equal(existsSync(join(staged.directory, 'apps/api/src/offline')), false);
+});
+
+test('a file removed before opening preserves the validated mirror until a complete retry', (t) => {
+  const { root, put } = fixture(t);
+  put('apps/web/src/transient.ts', 'last validated source');
+  const staged = mirror(t, root);
+  put('apps/api/src/main.ts', 'updated source');
+  const originalOpen = fs.openSync;
+  const disappearing = join(root, 'apps/web/src/transient.ts');
+  // Model an editor unlinking an already validated file before it is opened.
+  t.mock.method(fs, 'openSync', (path, ...args) => {
+    if (path === disappearing) rmSync(path);
+    return originalOpen(path, ...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.doesNotThrow(staged.sync);
+    assert.equal(
+      readFileSync(join(staged.directory, 'apps/web/src/transient.ts'), 'utf8'),
+      'last validated source',
+    );
+    assert.equal(
+      readFileSync(join(staged.directory, 'apps/api/src/main.ts'), 'utf8'),
+      'export {};',
+    );
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+  staged.sync();
+  assert.equal(existsSync(join(staged.directory, 'apps/web/src/transient.ts')), false);
+  assert.equal(
+    readFileSync(join(staged.directory, 'apps/api/src/main.ts'), 'utf8'),
+    'updated source',
+  );
+});
+
+test('a source permission failure is not swallowed as a deletion race or partially published', (t) => {
+  const { root, put } = fixture(t);
+  const staged = mirror(t, root);
+  put('apps/api/src/main.ts', 'unpublished source');
+  const originalOpen = fs.openSync;
+  const deniedSource = join(root, 'apps/web/src/app.tsx');
+  const deniedError = Object.assign(new Error('Synthetic source permission failure'), {
+    code: 'EACCES',
+  });
+  // Inject the OS error rather than chmod: this suite may run as root in CI.
+  t.mock.method(fs, 'openSync', (path, ...args) => {
+    if (path === deniedSource) throw deniedError;
+    return originalOpen(path, ...args);
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.throws(staged.sync, (error) => error === deniedError);
+    assert.equal(
+      readFileSync(join(staged.directory, 'apps/api/src/main.ts'), 'utf8'),
+      'export {};',
+    );
+    assert.equal(
+      readFileSync(join(staged.directory, 'apps/web/src/app.tsx'), 'utf8'),
+      'export {};',
+    );
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+});
+
 test('concurrent source mirrors isolate updates and cleanup between checkouts', (t) => {
   const first = fixture(t);
   const second = fixture(t);
@@ -219,12 +328,85 @@ test('never traverses rejected names, even when they are broken symlinks', (t) =
   assert.deepEqual(inventory(join(staged.directory, 'apps/api/src')), ['main.ts']);
 });
 
+test('Docker selection uses only the fixed system locations in priority order', (t) => {
+  const trusted = ['/usr/bin/docker', '/usr/local/bin/docker', '/opt/homebrew/bin/docker'];
+  const calls = [];
+  let available;
+  t.mock.method(fs, 'accessSync', (path, mode) => {
+    calls.push(path);
+    assert.equal(mode, fs.constants.X_OK);
+    if (path !== available) throw Object.assign(new Error('Missing'), { code: 'ENOENT' });
+  });
+  syncBuiltinESMExports();
+  try {
+    for (const [index, path] of trusted.entries()) {
+      available = path;
+      calls.length = 0;
+      assert.equal(dockerExecutable(), path);
+      assert.deepEqual(calls, trusted.slice(0, index + 1));
+    }
+    available = undefined;
+    calls.length = 0;
+    assert.throws(dockerExecutable, /trusted system location/);
+    assert.deepEqual(calls, trusted);
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+});
+
+test('Docker selection fails closed on installation permission errors', (t) => {
+  const denied = Object.assign(new Error('Installation inaccessible'), { code: 'EACCES' });
+  t.mock.method(fs, 'accessSync', () => {
+    throw denied;
+  });
+  syncBuiltinESMExports();
+  try {
+    assert.throws(dockerExecutable, (error) => error === denied);
+  } finally {
+    t.mock.restoreAll();
+    syncBuiltinESMExports();
+  }
+});
+
 async function until(predicate) {
   for (let attempt = 0; attempt < 200; attempt++) {
     if (predicate()) return;
     await delay(25);
   }
   throw new Error('Timed out waiting for synthetic wrapper subprocess.');
+}
+
+function dockerBoundary(root, script, missingDocker = false, launchTarget) {
+  const executable = join(root, 'docker-fixture');
+  writeFileSync(executable, `#!${process.execPath}\n${script}`, { mode: 0o755 });
+  const preload = join(root, 'docker-boundary.mjs');
+  // Replace only Docker's filesystem/process boundary, including in nested pnpm
+  // launches. Production executable selection and the whole wrapper still run.
+  writeFileSync(
+    preload,
+    `import fs from 'node:fs';
+import cp from 'node:child_process';
+import { syncBuiltinESMExports } from 'node:module';
+const trusted = ['/usr/bin/docker', '/usr/local/bin/docker', '/opt/homebrew/bin/docker'];
+const access = fs.accessSync;
+fs.accessSync = (path, mode) => {
+  if (!trusted.includes(path)) return access(path, mode);
+  if (${missingDocker}) throw Object.assign(new Error('Absent fixture installation'), { code: 'ENOENT' });
+};
+const spawn = cp.spawn;
+cp.spawn = (command, args, options) => {
+  if (command === 'docker') throw new Error('Docker must not be selected through PATH.');
+  if (trusted.includes(command)) {
+    if (command !== trusted[0]) throw new Error('Unexpected Docker selection order.');
+    return spawn(${JSON.stringify(launchTarget ?? executable)}, args, options);
+  }
+  return spawn(command, args, options);
+};
+syncBuiltinESMExports();
+`,
+  );
+  return `${process.env.NODE_OPTIONS ?? ''} --import=${pathToFileURL(preload).href}`;
 }
 
 function wrapper(
@@ -236,11 +418,18 @@ function wrapper(
 ) {
   const bin = join(root, 'bin');
   mkdirSync(bin);
-  // This fake replaces only the expensive Docker process, not the source filter.
-  writeFileSync(join(bin, 'docker'), `#!${process.execPath}\n${script}`, { mode: 0o755 });
+  // Keep nested pnpm scripts on the test runner's Node, not an ambient version.
+  symlinkSync(process.execPath, join(bin, 'node'));
+  // A PATH impostor must never run, even when earlier than the real installation.
+  writeFileSync(
+    join(bin, 'docker'),
+    `#!${process.execPath}\nrequire('node:fs').writeFileSync('path-docker-ran', 'unsafe'); process.exit(99);`,
+    { mode: 0o755 },
+  );
+  const nodeOptions = dockerBoundary(root, script);
   const child = spawn(entry[0], [...entry.slice(1), ...args], {
     cwd: root,
-    env: { ...process.env, PATH: `${bin}:${process.env.PATH}` },
+    env: { ...process.env, PATH: `${bin}:${process.env.PATH}`, NODE_OPTIONS: nodeOptions },
     stdio: ['ignore', 'pipe', 'pipe'],
   });
   let output = '';
@@ -250,6 +439,9 @@ function wrapper(
   const exited = new Promise((resolveResult, reject) => {
     child.once('error', reject);
     child.once('exit', (code, signal) => resolveResult({ code, signal }));
+  }).then((result) => {
+    assert.equal(existsSync(join(root, 'path-docker-ran')), false);
+    return result;
   });
   t.after(async () => {
     if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
@@ -281,7 +473,7 @@ for (const [name, args, expected] of [
   test(`pnpm development entrypoint preserves ${name}, child failure and staging cleanup`, async (t) => {
     const { root } = developmentFixture(t);
     const run = wrapper(t, root, `${recordInvocation}\nprocess.exit(7);`, args, ['pnpm', 'dev']);
-    assert.deepEqual(await run.exited, { code: 7, signal: null });
+    assert.deepEqual(await run.exited, { code: 7, signal: null }, run.output());
     const invocation = JSON.parse(readFileSync(join(root, 'invocation.json')));
     assert.deepEqual(invocation.args, ['compose', '--env-file', '/dev/null', ...expected]);
     assert.equal(typeof invocation.stage, 'string');
@@ -399,10 +591,11 @@ test('filtering failure stops Compose and emits no private path or contents', as
 
 test('bounds shutdown when Compose ignores the forwarded signal', async (t) => {
   const { root } = fixture(t);
+  // Publish readiness only after the fixture can receive the forwarded signal.
   const run = wrapper(
     t,
     root,
-    `${recordInvocation}\nsetInterval(() => {}, 1000);\nprocess.on('SIGTERM', () => { fs.writeFileSync('stopping', 'received'); });`,
+    `process.on('SIGTERM', () => { require('node:fs').writeFileSync('stopping', 'received'); });\nsetInterval(() => {}, 1000);\n${recordInvocation}`,
   );
   await until(() => existsSync(join(root, 'invocation.json')));
   const { stage } = JSON.parse(readFileSync(join(root, 'invocation.json')));
@@ -412,22 +605,57 @@ test('bounds shutdown when Compose ignores the forwarded signal', async (t) => {
   assert.equal(existsSync(stage), false);
 });
 
-test('missing Docker fails and cleans its staging directory', async (t) => {
-  const { root } = fixture(t);
-  const scratch = join(root, 'scratch');
-  mkdirSync(scratch);
-  const child = spawn(process.execPath, [helper, 'watch', '--no-up'], {
-    cwd: root,
-    env: {
-      ...process.env,
-      PATH: join(root, 'nonexistent-bin'),
-      TMPDIR: scratch,
-      TMP: scratch,
-      TEMP: scratch,
-    },
-    stdio: 'ignore',
+for (const failure of ['missing installation', 'removed executable', 'non-executable file']) {
+  test(`trusted Docker ${failure} fails without fallback, redacts errors and cleans staging`, async (t) => {
+    const { root, put } = fixture(t);
+    const scratch = join(root, 'scratch');
+    mkdirSync(scratch);
+    const bin = join(root, 'bin');
+    mkdirSync(bin);
+    writeFileSync(
+      join(bin, 'docker'),
+      `#!${process.execPath}\nrequire('node:fs').writeFileSync('path-docker-ran', 'unsafe');`,
+      { mode: 0o755 },
+    );
+    // Selection succeeds for both launch-failure cases. The real OS spawn then
+    // fails, modelling a removed installation or permissions changing after X_OK.
+    const launchTarget =
+      failure === 'missing installation' ? undefined : join(root, 'synthetic-private-docker');
+    if (failure === 'non-executable file') put('synthetic-private-docker', 'not executable');
+    const child = spawn(process.execPath, [helper, 'watch', '--no-up'], {
+      cwd: root,
+      env: {
+        ...process.env,
+        PATH: `${bin}:${process.env.PATH}`,
+        NODE_OPTIONS: dockerBoundary(
+          root,
+          `${recordInvocation}\nprocess.exit(0);`,
+          failure === 'missing installation',
+          launchTarget,
+        ),
+        TMPDIR: scratch,
+        TMP: scratch,
+        TEMP: scratch,
+      },
+      stdio: ['ignore', 'ignore', 'pipe'],
+    });
+    let output = '';
+    child.stderr.on('data', (chunk) => {
+      output += chunk;
+    });
+    const exited = new Promise((resolveResult, reject) => {
+      child.once('error', reject);
+      child.once('close', (code, signal) => resolveResult({ code, signal }));
+    });
+    t.after(async () => {
+      if (child.exitCode === null && child.signalCode === null) child.kill('SIGKILL');
+      await exited;
+    });
+    assert.deepEqual(await exited, { code: 1, signal: null });
+    assert.match(output, /Compose Watch failed/);
+    assert.doesNotMatch(output, /synthetic-private|ENOENT|EACCES/);
+    assert.equal(existsSync(join(root, 'path-docker-ran')), false);
+    assert.equal(existsSync(join(root, 'invocation.json')), false);
+    assert.deepEqual(readdirSync(scratch), []);
   });
-  const result = await new Promise((resolveResult) => child.once('exit', resolveResult));
-  assert.equal(result, 1);
-  assert.deepEqual(readdirSync(scratch), []);
-});
+}

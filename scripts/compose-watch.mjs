@@ -1,5 +1,6 @@
 import { spawn } from 'node:child_process';
 import {
+  accessSync,
   closeSync,
   constants,
   fstatSync,
@@ -105,7 +106,17 @@ export function createSourceMirror(checkout) {
   function sync() {
     if (closed) throw new Error('Source mirror is closed.');
     // Complete validation before changing the tree Compose can see.
-    const next = snapshot(root);
+    let next;
+    try {
+      next = snapshot(root);
+    } catch (error) {
+      // Recursive deletion can remove an enumerated child before lstat/open.
+      // Discard the ENTIRE incomplete scan, preserving the last validated mirror
+      // until the next normal polling tick. Never publish a partial snapshot or
+      // treat unsafe entries/permissions/other I/O errors as a benign deletion.
+      if (error.code === 'ENOENT' && previous.directories.size > 0) return;
+      throw error;
+    }
     for (const path of previous.files.keys()) {
       if (!next.files.has(path)) rmSync(join(directory, path));
     }
@@ -134,6 +145,25 @@ export function createSourceMirror(checkout) {
     close();
     throw error;
   }
+}
+
+export function dockerExecutable() {
+  // Administrator-managed installation locations only; never consult PATH, cwd,
+  // environment overrides or a project-local executable. Supports Linux/WSL,
+  // Docker Desktop and Homebrew/Colima on macOS in this fixed priority order.
+  for (const executable of [
+    '/usr/bin/docker',
+    '/usr/local/bin/docker',
+    '/opt/homebrew/bin/docker',
+  ]) {
+    try {
+      accessSync(executable, constants.X_OK);
+      return executable;
+    } catch (error) {
+      if (error.code !== 'ENOENT') throw error;
+    }
+  }
+  throw new Error('Install Docker in a supported trusted system location; see README.md.');
 }
 
 export async function runComposeWatch(args, { root = process.cwd(), intervalMs = 250 } = {}) {
@@ -165,7 +195,7 @@ export async function runComposeWatch(args, { root = process.cwd(), intervalMs =
   const onInterrupt = () => stop('SIGINT');
   const onTerminate = () => stop('SIGTERM');
   try {
-    child = spawn('docker', ['compose', '--env-file', '/dev/null', ...command], {
+    child = spawn(dockerExecutable(), ['compose', '--env-file', '/dev/null', ...command], {
       cwd: root,
       env: { ...process.env, MOBEY_WATCH_SOURCE: mirror.directory },
       stdio: 'inherit',
@@ -187,7 +217,7 @@ export async function runComposeWatch(args, { root = process.cwd(), intervalMs =
       child.once('exit', (code, signal) => resolveResult({ code, signal }));
     });
     if (failed) return 1;
-    if (stopping) return stopSignal === 'SIGINT' ? 130 : 143;
+    if (stopping) return String(stopSignal) === 'SIGINT' ? 130 : 143;
     return result.code ?? 1;
   } finally {
     clearInterval(timer);
@@ -203,7 +233,7 @@ if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.ur
     process.exitCode = await runComposeWatch(process.argv.slice(2));
   } catch {
     console.error(
-      'Compose Watch failed. Check the pinned toolchain and eligible source filesystem entries.',
+      'Compose Watch failed. Check the pinned toolchain, trusted Docker installation (README.md) and eligible source filesystem entries.',
     );
     process.exitCode = 1;
   }
