@@ -40,7 +40,22 @@ readiness rejects unapplied migrations rather than applying them inside the API.
 Only the documented source paths are synchronized, not the entire checkout.
 
 The root `pnpm dev` alias runs the same command (requires Node **24.20.0** and pnpm
-**11.25.0**). The database volume persists across normal shutdown/recreation:
+**11.25.0**).
+
+### Wrapper executable trust policy
+
+The Node wrapper selects the first executable Docker installation from this fixed
+list, in order: `/usr/bin/docker`, `/usr/local/bin/docker`, then
+`/opt/homebrew/bin/docker`. These must be trusted, administrator-managed
+installations (including trusted Docker Desktop/Homebrew symlinks). It never
+searches `PATH`, the checkout or environment-provided executable overrides.
+Missing locations are skipped; permission errors or no executable installation
+fail closed, without falling back to `PATH`. Install Docker at one of these
+locations before running the wrapper. Docker contexts and socket settings still
+work normally; they do not select the executable. The shell's direct `docker`
+commands above are outside this wrapper policy.
+
+The database volume persists across normal shutdown/recreation:
 
 ```sh
 docker compose --env-file /dev/null down
@@ -150,6 +165,11 @@ project/volume, random loopback port and a disposable source copy. Its test-only
 Nginx proxy joins the unchanged production-built SPA to the migrated API; the API
 uses `NODE_ENV=test` solely for synthetic local PostgreSQL, not deployed TLS proof.
 The existing Compose suite still proves Watch behavior and development guards.
+For isolated web runtime/package diagnosis, run
+`pnpm exec node --test --test-reporter=dot scripts/web-runtime.test.mjs` with local
+Docker, Trivy and a pre-provisioned vulnerability database. This scans the runtime
+without SPA assets using the cached database; it does not replace the full-image
+CI scan or browser checks. See the [check registry](docs/testing.md) for evidence.
 
 The workflow runs on PRs and main pushes with read-only permissions and pinned
 actions/tools. It rejects secrets/generated paths in the clean checkout before

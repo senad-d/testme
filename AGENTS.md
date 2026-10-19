@@ -130,6 +130,10 @@ Use the pinned Node 24.20.0 and pnpm 11.25.0 toolchain. Install dependencies wit
 `pnpm install --frozen-lockfile`; do not use the default Node 26 runtime as verification
 evidence. The workspace has build, type-check, test, and contract commands. Exact
 commands and their evidence scope live in [`docs/testing.md`](docs/testing.md).
+For isolated web runtime/package diagnosis, use
+`pnpm exec node --test --test-reporter=dot scripts/web-runtime.test.mjs` with local
+Docker, Trivy and a pre-provisioned vulnerability database. This cached-database
+runtime-only check does not replace full-image CI scans or browser verification.
 Run `pnpm format:check`, `pnpm lint --force`, `pnpm test:ci-policy` and
 `pnpm exec turbo run type-check:tests --force` for the quality tooling. With an
 explicit runner-local Docker target, run `pnpm test:coverage` and
