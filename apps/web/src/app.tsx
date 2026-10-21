@@ -95,7 +95,7 @@ export function App() {
   }, []);
 
   return (
-    <main>
+    <main id="top">
       <h1>Mobey</h1>
       <p>Build: {buildVersion}</p>
       <p role="status" aria-live="polite">
@@ -103,6 +103,9 @@ export function App() {
       </p>
       <p role="status" aria-live="polite">
         API readiness: {readiness}
+      </p>
+      <p>
+        <a href="#top">Back to top</a>
       </p>
     </main>
   );
