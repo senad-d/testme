@@ -83,7 +83,21 @@ Security remediation pins the Fastify adapter/runtime patch releases and narrow
 transitive overrides for esbuild, undici, fast-uri, brace-expansion, grpc-js and
 source-map-js. A PostCSS patch-level override fixes the missing `NodeProps` declaration
 exposed when type-checking Vitest configs; no `skipLibCheck` workaround is used.
+Vite is pinned to 8.2.4 across the web build and Vitest dependency graph to remediate
+GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw in the
+bundled launch-editor integration; the all-severity audit remains unchanged.
 Existing API/contract and exact-money tests protect these compatibility boundaries.
+Follow-up verification (#638 / PR #216) passed frozen install, all-severity audit
+(zero advisories), uncached build, source/test types, lint, formatting, contract
+and all 394 shared/web/API tests with coverage, including real PostgreSQL. On
+Colima, the test run used `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock`
+and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` so the cleanup
+container mounts the VM socket rather than the host path. Loopback Vite/API
+browser verification showed the API version and absent-database readiness
+fallback with no console errors or axe violations. Playwright smoke was not run:
+its pinned Chromium binary was absent; install it using the README browser setup
+before rerunning `pnpm test:platform`. The existing audit and compatibility suites
+cover this dependency-only follow-up; no duplicate version-pin test was added.
 
 Production image remediation (objective 428, following the objective 427 failed
 PR #134 scan) leaves the build/development Node toolchain unchanged. The API runtime
