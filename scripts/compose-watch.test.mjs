@@ -6,6 +6,7 @@ import {
   mkdtempSync,
   readFileSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   symlinkSync,
@@ -55,7 +56,9 @@ const denied = [
 ];
 
 function fixture(t) {
-  const root = mkdtempSync(join(tmpdir(), 'mobey-filter-test-'));
+  // Match the filesystem paths used by the mirror so fault injection also runs
+  // on hosts whose temporary directory has a symlinked ancestor (for example macOS).
+  const root = realpathSync(mkdtempSync(join(tmpdir(), 'mobey-filter-test-')));
   t.after(() => rmSync(root, { recursive: true, force: true }));
   function put(path, value = 'synthetic') {
     mkdirSync(dirname(join(root, path)), { recursive: true });
