@@ -203,3 +203,5 @@ uses synthetic transcripts without Git/network access; the existing CI-policy ga
 also runs it. See [delivery safety](docs/delivery-safety.md) for failure recovery,
 exact evidence scope and the administrator-owned protected-main acceptance gate.
 Local guards do not establish live branch protection.
+
+Guides live in the docs/ directory.
