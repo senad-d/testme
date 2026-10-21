@@ -57,6 +57,56 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+it.each(['successful', 'pending', 'unavailable'] as const)(
+  'renders accessible bottom-of-page navigation with %s endpoints',
+  async (state) => {
+    const endpoint = () =>
+      state === 'pending'
+        ? new Promise<Response>(() => {
+            /* Deliberately pending until unmount. */
+          })
+        : Promise.reject<Response>(new Error('Synthetic endpoint failure'));
+    mockEndpoints(
+      state === 'successful'
+        ? {}
+        : { '/api/v1/health/ready': endpoint, '/api/v1/version': endpoint },
+    );
+    await renderApp();
+    expect(statusParagraph('API:')?.textContent).toBe(
+      `API: ${state === 'successful' ? '1.2.3' : state === 'pending' ? 'checking' : 'unavailable'}`,
+    );
+    expect(statusParagraph('API readiness:')?.textContent).toBe(
+      `API readiness: ${state === 'successful' ? 'ready' : state === 'pending' ? 'checking' : 'unavailable'}`,
+    );
+
+    const links = container.querySelectorAll('a');
+    expect(links).toHaveLength(1);
+    const link = links.item(0);
+    expect(link.textContent).toBe('Back to top');
+    expect(link.getAttribute('href')).toBe('#top');
+    expect(link.hasAttribute('tabindex')).toBe(false);
+
+    const targets = container.querySelectorAll('#top');
+    expect(targets).toHaveLength(1);
+    const main = targets.item(0);
+    expect(main.tagName).toBe('MAIN');
+    expect(main.querySelector('h1')?.textContent).toBe('Mobey');
+    expect(container.lastElementChild).toBe(main);
+    const paragraph = link.parentElement;
+    expect(paragraph?.tagName).toBe('P');
+    if (!paragraph) throw new Error('Expected the navigation paragraph');
+    expect(main.lastElementChild).toBe(paragraph);
+    expect(paragraph.previousElementSibling).toBe(statusParagraph('API readiness:'));
+    expect(paragraph.previousElementSibling?.previousElementSibling).toBe(statusParagraph('API:'));
+    expect(link.closest('[role="status"], [role="alert"], [aria-live]')).toBeNull();
+    expect(link.closest('[hidden], [aria-hidden="true"], [inert]')).toBeNull();
+    for (const element of [main, paragraph, link]) {
+      expect(getComputedStyle(element).display).not.toBe('none');
+      expect(getComputedStyle(element).visibility).toBe('visible');
+    }
+  },
+);
+
 it.each([
   [200, '{"status":"ok"}', 'ready'],
   [503, '{"status":"unavailable"}', 'unavailable'],

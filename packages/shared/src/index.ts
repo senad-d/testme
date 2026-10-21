@@ -10,6 +10,7 @@ export {
   subtractGameMoney,
   sumGameMoney,
 } from './money.js';
+export { truncateText } from './truncate-text.js';
 
 const APPLICATION_DESCRIPTION = 'Mobey family learning and rewards';
 const APPLICATION_NAME = 'mobey';
