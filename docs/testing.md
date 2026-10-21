@@ -240,12 +240,18 @@ checks so the shared package entrypoint exists.
 | ------------------------- | ---------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Shared text truncation    | `pnpm --filter @mobey/shared test` | `packages/shared/src/truncate-text.test.ts` imports the public source export and checks unchanged/empty/whitespace input, zero/one/exact/large limits, in-cap ellipsis, supplementary and combining characters, invalid limits, and fixed errors that do not echo rejected text. Runs the other shared tests too.       |
 | Page navigation component | `pnpm --filter @mobey/web test`    | `apps/web/src/app.test.tsx` checks the single visible native `Back to top` anchor, `href="#top"`, unique `main#top` target, bottom placement after both status paragraphs, no `tabindex` override, and separation from live regions across successful, pending and unavailable endpoints. Runs the other web tests too. |
+| Page navigation browser   | `pnpm test:platform`               | `tests/e2e/platform-smoke.spec.ts` checks native Tab/Enter and pointer activation, fragment navigation and actual upward scrolling on the production-built page in a short viewport, plus an axe scan. Requires local Docker and installed Playwright Chromium; also runs the existing platform smoke tests.            |
 
 `apps/web/src/app.tsx` places the link in the last paragraph of `main`, whose
 `id="top"` supplies the native fragment target. API-version and readiness status
 behavior is preserved. These jsdom component assertions check markup, visibility
 and status rendering, not real-browser keyboard activation, focus or scrolling;
-those require separate browser verification. No browser pass is claimed here.
+`pnpm test:platform` supplies that browser regression with a 320 × 160 viewport to
+force real overflow on this small page. This is a targeted regression, not an
+approved device/browser matrix, target-age usability or accessibility-conformance
+claim. The browser assertion was negative-controlled by intercepting the built
+JavaScript response and changing only the link fragment to `#missing`; the test
+failed on keyboard navigation as expected, and the interception was removed.
 This addition has no API, schema, generated-contract or dependency changes.
 Registry/source comparison and documentation formatting validate this documentation
 only; they do not replace source-task tests or repository-wide required gates.

@@ -5,6 +5,7 @@ import { tmpdir } from 'node:os';
 import { basename, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
 
+import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const root = fileURLToPath(new URL('../..', import.meta.url));
@@ -245,6 +246,38 @@ test('production API omits unused package-manager launchers and module trees', (
       ]),
     ).toThrow(error);
   }
+});
+
+test('Back to top supports native keyboard and pointer navigation on the built page', async ({
+  page,
+}) => {
+  // A short viewport gives this intentionally small health page real overflow.
+  await page.setViewportSize({ width: 320, height: 160 });
+  await page.goto(webUrl);
+  const heading = page.getByRole('heading', { name: 'Mobey', exact: true });
+  const link = page.getByRole('link', { name: 'Back to top', exact: true });
+  await expect(link).toBeVisible();
+
+  const scrollToBottom = async () => {
+    await page.evaluate(() => {
+      window.scrollTo(0, document.documentElement.scrollHeight);
+    });
+    await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0);
+    return page.evaluate(() => window.scrollY);
+  };
+  const bottom = await scrollToBottom();
+  await page.keyboard.press('Tab');
+  await expect(link).toBeFocused();
+  await page.keyboard.press('Enter');
+  await expect(page).toHaveURL(`${webUrl}/#top`);
+  await expect(heading).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(bottom);
+
+  const pointerBottom = await scrollToBottom();
+  await link.click();
+  await expect(heading).toBeInViewport();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeLessThan(pointerBottom);
+  expect((await new AxeBuilder({ page }).analyze()).violations).toEqual([]);
 });
 
 test('production-built web reaches the migrated API through same-origin routing', async ({
