@@ -30,6 +30,7 @@ FROM node:24.20.0-alpine3.24@sha256:e67514e5d0f6c46656005e1b693b2ec9d52e80b64130
 # Exact security patches fail closed if unavailable; never use an unpinned upgrade.
 # Remove unused package managers, not their metadata alone, from the runtime.
 RUN apk add --no-cache libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 zlib=1.3.2-r1 \
+        musl=1.2.6-r3 musl-utils=1.2.6-r3 \
     && rm -rf /usr/local/lib/node_modules /opt/yarn-* \
     && rm -f /usr/local/bin/npm /usr/local/bin/npx /usr/local/bin/corepack \
         /usr/local/bin/yarn /usr/local/bin/yarnpkg
