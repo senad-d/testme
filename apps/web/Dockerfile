@@ -34,7 +34,7 @@ RUN apk add --no-cache \
     c-ares=1.34.8-r0 curl=8.22.0-r0 libcurl=8.22.0-r0 \
     libcrypto3=3.5.9-r0 libssl3=3.5.9-r0 libexpat=2.9.0-r0 \
     libpng=1.6.59-r0 libuuid=2.42.3-r1 pcre2=10.49-r0 \
-    tiff=4.7.2-r0 zlib=1.3.2-r1
+    tiff=4.7.2-r0 zlib=1.3.2-r1 musl=1.2.6-r3 musl-utils=1.2.6-r3
 COPY --from=build /workspace/apps/web/dist/ /usr/share/nginx/html/
 USER 101
 EXPOSE 8080

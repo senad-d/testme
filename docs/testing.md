@@ -83,15 +83,50 @@ Security remediation pins the Fastify adapter/runtime patch releases and narrow
 transitive overrides for esbuild, undici, fast-uri, brace-expansion, grpc-js and
 source-map-js. A PostCSS patch-level override fixes the missing `NodeProps` declaration
 exposed when type-checking Vitest configs; no `skipLibCheck` workaround is used.
+Vite is pinned to 8.2.4 across the web build and Vitest dependency graph to remediate
+GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw in the
+bundled launch-editor integration; the all-severity audit remains unchanged.
 Existing API/contract and exact-money tests protect these compatibility boundaries.
-Vite is pinned to 8.2.4, including Vitest's locked transitive paths, to remediate
-GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw without
-advisory exclusions; the all-severity `pnpm audit` check remains blocking.
+Follow-up verification (#638 / PR #216) passed frozen install, all-severity audit
+(zero advisories), uncached build, source/test types, lint, formatting, contract
+and all 394 shared/web/API tests with coverage, including real PostgreSQL. On
+Colima, the test run used `DOCKER_HOST=unix://$HOME/.colima/default/docker.sock`
+and `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE=/var/run/docker.sock` so the cleanup
+container mounts the VM socket rather than the host path. Loopback Vite/API
+browser verification showed the API version and absent-database readiness
+fallback with no console errors or axe violations. Playwright smoke was not run:
+its pinned Chromium binary was absent; install it using the README browser setup
+before rerunning `pnpm test:platform`. The existing audit and compatibility suites
+cover this dependency-only follow-up; no duplicate version-pin test was added.
+The subsequent PR #216 audit failure reproduced two moderate `@vitest/mocker`
+advisories (GHSA-qxg6-89mg-rqv8 and GHSA-xp26-3454-mjgp). Vitest and its V8
+coverage provider are now pinned together to 4.1.12 across the workspace, updating
+the locked mocker without overrides or advisory exclusions. On Node 24.20.0 /
+pnpm 11.25.0, frozen install, audit (zero advisories), peer compatibility, uncached
+build/source and test types/lint/contract checks and all 427 shared/web/API tests
+with coverage passed, including real PostgreSQL through the Colima configuration
+above. Loopback Vite/API browser verification used the actual version endpoint
+and absent-database readiness fallback, without response stubs; the inspected
+screenshot showed that state, the console had no errors and axe reported zero
+violations. This is local working-tree evidence, not a rerun of GitHub CI or the
+production-built Playwright smoke. The existing audit is the regression gate for
+these advisories; CI must rerun after publication.
+
+Independent test-step verification of this dependency-only follow-up passed frozen
+install, all-severity audit (zero advisories), peer checks and uncached test types
+on the same pinned toolchain. `pnpm test:coverage --reporter=dot` passed 202 shared,
+39 web and 186 API tests, including real PostgreSQL. Coverage normalization accepted
+all three fresh V8 reports (12 source records). The content runner started with
+4.1.12 but has no test files; its zero-test exit is not coverage. Existing audit,
+mocking/component, API and coverage-export checks cover the changed tooling seam,
+so no duplicate version-pin tests were added. No rendered UI or runtime dependency
+changed; browser/image suites were not selected for this test step. These results
+do not establish a fresh GitHub CI result.
 
 Production image remediation (objective 428, following the objective 427 failed
 PR #134 scan) leaves the build/development Node toolchain unchanged. The API runtime
-uses the same pinned Node release on digest-pinned Alpine 3.24, with exact OpenSSL
-and zlib package patches; unused npm/Corepack/Yarn files are removed entirely.
+uses the same pinned Node release on digest-pinned Alpine 3.24, with exact OpenSSL,
+zlib and musl package patches; unused npm/Corepack/Yarn files are removed entirely.
 The production dependency graph, compiled API and checked SQL remain intact.
 This musl runtime is suitable only while deployed dependencies remain compatible;
 new native addons require explicit build/runtime ABI verification. The web runtime
@@ -104,6 +139,36 @@ the blocking image scan validates the complete runtime.
 Package pins fail closed if unavailable; refresh them through reviewed changes,
 never an unpinned `apk upgrade` or scanner exception. All-severity, including
 unfixed, image scanning remains blocking.
+
+PR #216 follow-up (objective 655): the existing production-image scan reproduced
+CVE-2026-107891 in both musl packages at `1.2.6-r2`. The API Dockerfile now pins
+`musl` and `musl-utils` to the fixed `1.2.6-r3`; the same all-severity scan with
+Trivy 0.75.0's 2026-10-22 database reports zero findings. All three production
+platform smoke tests pass with Node 24.20.0 / pnpm 11.25.0, including real-browser
+same-origin API readiness. Independent follow-up testing rebuilt and scanned both
+linux/arm64 and linux/amd64 production API images with that cached database:
+zero vulnerabilities, both musl packages at `1.2.6-r3`, Node 24.20.0 and non-root
+UID 1000. The three platform smoke tests and 34 CI-policy tests passed again.
+Existing full-image scans and production smoke already cover this package-only
+change; no duplicate pin-assertion test was added. Owned images/stacks were removed.
+GitHub's rerun remains the CI proof.
+
+PR #216 follow-up (objective 658): the subsequent web-image scan exposed the
+same CVE-2026-107891 in its inherited musl packages. The web Dockerfile now also
+pins `musl` and `musl-utils` to `1.2.6-r3`. The existing focused web runtime
+regression reproduced both findings before the change and passed afterward on
+linux/arm64 and linux/amd64, including non-root execution, the default Nginx
+healthcheck and an all-severity scan including unfixed findings. Verification used
+Node 24.20.0 and Trivy 0.75.0 with its cached 2026-10-22 database. All three
+production-built platform smoke tests and all 34 CI-policy tests passed. The first
+browser attempt lacked Chromium; after installing it in a temporary directory,
+the unchanged suite passed against the migrated synthetic API stack. No scanner
+exceptions or test relaxations were added; the push must establish passing CI.
+Independent follow-up testing reran the focused runtime regression on both
+linux/arm64 and linux/amd64 with that toolchain/database: both passed, as did
+all 34 CI-policy tests. This scoped rerun did not repeat the SPA build or browser
+smoke. Existing coverage directly exercises the changed package transaction;
+no duplicate package-pin assertion was added.
 
 | Check                          | Command                                                                  | Evidence scope                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
