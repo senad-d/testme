@@ -1,5 +1,6 @@
 // Export generated API contracts and explicitly reviewed safe primitives from this seam only.
 export type * from './generated/api.js';
+export { median } from './median.js';
 export {
   addGameMoney,
   formatGameMoney,
