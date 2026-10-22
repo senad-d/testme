@@ -87,6 +87,9 @@ Existing API/contract and exact-money tests protect these compatibility boundari
 Vite is pinned to 8.2.4, including Vitest's locked transitive paths, to remediate
 GHSA-587h-7wmj-h5pm, GHSA-698v-4r3x-3vcv and GHSA-r825-w8mm-5pxw without
 advisory exclusions; the all-severity `pnpm audit` check remains blocking.
+Vitest and its V8 coverage provider are pinned together to 4.1.12 across the
+workspace, including the locked `@vitest/mocker` dependency, to remediate
+GHSA-qxg6-89mg-rqv8 and GHSA-xp26-3454-mjgp without advisory exclusions.
 
 Production image remediation (objective 428, following the objective 427 failed
 PR #134 scan) leaves the build/development Node toolchain unchanged. The API runtime
