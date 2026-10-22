@@ -125,8 +125,8 @@ do not establish a fresh GitHub CI result.
 
 Production image remediation (objective 428, following the objective 427 failed
 PR #134 scan) leaves the build/development Node toolchain unchanged. The API runtime
-uses the same pinned Node release on digest-pinned Alpine 3.24, with exact OpenSSL
-and zlib package patches; unused npm/Corepack/Yarn files are removed entirely.
+uses the same pinned Node release on digest-pinned Alpine 3.24, with exact OpenSSL,
+zlib and musl package patches; unused npm/Corepack/Yarn files are removed entirely.
 The production dependency graph, compiled API and checked SQL remain intact.
 This musl runtime is suitable only while deployed dependencies remain compatible;
 new native addons require explicit build/runtime ABI verification. The web runtime
@@ -139,6 +139,19 @@ the blocking image scan validates the complete runtime.
 Package pins fail closed if unavailable; refresh them through reviewed changes,
 never an unpinned `apk upgrade` or scanner exception. All-severity, including
 unfixed, image scanning remains blocking.
+
+PR #216 follow-up (objective 655): the existing production-image scan reproduced
+CVE-2026-107891 in both musl packages at `1.2.6-r2`. The API Dockerfile now pins
+`musl` and `musl-utils` to the fixed `1.2.6-r3`; the same all-severity scan with
+Trivy 0.75.0's 2026-10-22 database reports zero findings. All three production
+platform smoke tests pass with Node 24.20.0 / pnpm 11.25.0, including real-browser
+same-origin API readiness. Independent follow-up testing rebuilt and scanned both
+linux/arm64 and linux/amd64 production API images with that cached database:
+zero vulnerabilities, both musl packages at `1.2.6-r3`, Node 24.20.0 and non-root
+UID 1000. The three platform smoke tests and 34 CI-policy tests passed again.
+Existing full-image scans and production smoke already cover this package-only
+change; no duplicate pin-assertion test was added. Owned images/stacks were removed.
+GitHub's rerun remains the CI proof.
 
 | Check                          | Command                                                                  | Evidence scope                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
