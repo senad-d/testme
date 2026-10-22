@@ -153,6 +153,23 @@ Existing full-image scans and production smoke already cover this package-only
 change; no duplicate pin-assertion test was added. Owned images/stacks were removed.
 GitHub's rerun remains the CI proof.
 
+PR #216 follow-up (objective 658): the subsequent web-image scan exposed the
+same CVE-2026-107891 in its inherited musl packages. The web Dockerfile now also
+pins `musl` and `musl-utils` to `1.2.6-r3`. The existing focused web runtime
+regression reproduced both findings before the change and passed afterward on
+linux/arm64 and linux/amd64, including non-root execution, the default Nginx
+healthcheck and an all-severity scan including unfixed findings. Verification used
+Node 24.20.0 and Trivy 0.75.0 with its cached 2026-10-22 database. All three
+production-built platform smoke tests and all 34 CI-policy tests passed. The first
+browser attempt lacked Chromium; after installing it in a temporary directory,
+the unchanged suite passed against the migrated synthetic API stack. No scanner
+exceptions or test relaxations were added; the push must establish passing CI.
+Independent follow-up testing reran the focused runtime regression on both
+linux/arm64 and linux/amd64 with that toolchain/database: both passed, as did
+all 34 CI-policy tests. This scoped rerun did not repeat the SPA build or browser
+smoke. Existing coverage directly exercises the changed package transaction;
+no duplicate package-pin assertion was added.
+
 | Check                          | Command                                                                  | Evidence scope                                                                                                                                                                                                                                                                                                                                                                           |
 | ------------------------------ | ------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Focused web runtime regression | `pnpm exec node --test --test-reporter=dot scripts/web-runtime.test.mjs` | Builds the Dockerfile's production runtime without SPA assets, verifies non-root execution, starts the unchanged entrypoint/config until the production HEALTHCHECK passes, and scans all severities including unfixed findings. Requires local Docker, Trivy and a pre-provisioned vulnerability DB; uses that cached DB without refreshing it. Does not replace full image/E2E checks. |
