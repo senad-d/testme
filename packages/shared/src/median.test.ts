@@ -7,6 +7,8 @@ describe('median', () => {
     { values: [3, 1, 2], expected: 2 },
     { values: [4, 1, 2, 3], expected: 2.5 },
     { values: [7], expected: 7 },
+    { values: [0], expected: 0 },
+    { values: [2, 0], expected: 1 },
     { values: [3, 2, 2, 1], expected: 2 },
     { values: [-1.5, -4.5, -3], expected: -3 },
     { values: [1.5, -4.5, -1.5, 0.5], expected: -0.5 },
